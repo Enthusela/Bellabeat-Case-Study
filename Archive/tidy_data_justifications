@@ -1,0 +1,40 @@
+## Transform into tidy data frames
+
+The Fitabase data set has the following characteristics:
+
+* Tables encoded in different formats, including both narrow and wide
+* Variables sampled at different rates, e.g. per-second and per-day
+* Tables containing duplicated or summarised data from other tables.
+* CapitalisedVariableNames
+* snake_case_file_names
+* Inconsistent file names: file names generally include the feature and polling rate, but not in the same format across files
+* Duplicate data, e.g. weight logs in both kilos and pounds in the same table
+
+
+Of these features, some are better understood by analysing the summarized data:
+
+* sleepDay_merged (I don't need intra-night sleep stats)
+
+Others are better understood by analysing the base/narrow data:
+
+*
+
+## Identify Raw Data Tables
+
+The following base/narrow data tables are included in the Fitabase data set:
+
+* heartrate_seconds_merged
+* minuteCaloriesNarrow_merged
+* minuteIntensitiesNarrow_merged
+* minuteMETsNarrow_merged
+* minuteStepsNarrow_merged
+* minuteSleep_merged
+* weightLogInfo_merged
+
+These data tables contain all of the data included in the summary tables.
+
+While the summary tables provides some useful ready-made summaries and potential for visualisation, further processing with R will benefit from isolating the unique data sets and re-organising them into tidy data. "Tidy data" means:
+
+* One table (or data frame) per observational unit (e.g. one for sleep, one for steps, etc.)
+* One variable per table column
+* One observation per table row

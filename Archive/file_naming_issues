@@ -1,0 +1,6 @@
+* "minuteCaloriesNarrow_merged.csv" is narrow and contains the source data for the calorie tracking feature
+* "dailyCalories_merged.csv is also narrow, but does not contain source data: it contains data summarized from the calorie tracking source data
+* "dailyIntensities_merged.csv" also contains summarized data, but the data is wide, not narrow
+* "weightLogInfo_merged.csv" also contains wide data, but the data is source data, not summary data, and no sampling interval is specified as the data may or may not be manually entered
+* "sleepDay_merged.csv" contains wide, summarized data, but the "featureInterval" naming convention is reversed, i.e. "sleepDay" as opposed to "minuteCalories"
+* "dailyActivities_merged.csv" contains wide, summarized data, sampled at daily intervals, but associated with multiple features: there is no "Activity" feature with an associated source data set.

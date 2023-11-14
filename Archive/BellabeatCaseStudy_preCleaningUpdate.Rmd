@@ -1,0 +1,833 @@
+---
+title: "Bellabeat Case Study Report"
+author: "Nathan"
+date: "2023-07-27"
+output: html_document
+---
+
+# Step 1: Ask
+## Business Task
+
+This analysis was initiated by Urška Sršen, co-founder of Bellabeat. Sršen knows that an analysis of available data on consumers' smart device usage would reveal opportunities for the company to grow, and has provided the following business task:
+
+> Analyse smart device usage data to gain insight into how people are already using smart devices, then generate high-level recommendations for how these insights can inform the marketing strategy for one Bellabeat product.
+
+## Key Stakeholders
+
+* Urška Sršen
+  + Co-founder of Bellabeat
+  + Initiator of this analysis
+* Bellabeat marketing team
+  + Intended audience for my presentation
+  + Will use my insights to guide marketing strategies
+
+# Step 2: Prepare
+## Setting up my tools
+### Selecting my tools
+
+For this analysis I wanted a tool or set of tools with the following features:
+
+* Sufficient power enough to handle large data sets, e.g. FitBit data tables with >1M observations
+* Functions for data manipulation, e.g. loading, cleaning and combining data sets
+* Functions for data analysis, e.g. regression analysis and statistical analysis
+* Functions for data visualisation, e.g. plotting
+* Methods for storing the details of my analysis methodology separate from the data itself, e.g. separate source code files, but not macros stored within spreadsheet files
+* Methods for generating reports from my analysis with as little repetition of work as possible, e.g. inline markdown languages, or Page Layout views in spreadsheet applications
+* A straightforward learning process and user interface, e.g. spreadsheet tools typically have a single "Add Chart" tool under which all of their powerful charting options can be found; contrast this with learning to download, enable, and finally use the ggplot2 R library
+
+With these requirements in mind, I considered three tools: R, spreadsheets, and databases:
+
+|Feature|R|Spreadsheets|Databases|
+|:------------------------------|:---:|:---:|:---:|
+| Power for large data sets     | Yes | No  | Yes |
+| Data manipulation tools       | Yes | Yes | Yes |
+| Data analysis tools           | Yes | Yes | No  |
+| Data visualisation tools      | Yes | Yes | No  |
+| Separate analysis files       | Yes | No  | Yes |
+| Streamlined report generation | Yes | No  | No  |
+| Straightforward to learn      | No  | Yes | No  |
+
+Clearly, R is the best single tool for this analysis. R lacks the straightfoward operation of spreadsheet tools, and I will need to learn libraries and programming techniques as I do my analysis, but this is acceptable given my prior experience with other programming languages like Python. 
+
+Note: Python itself was not considered for this analysis: while it shares most of the features, advantages, and disadvantages of R, I'm already familiar with Python and wanted to use this case study to familiarise myself with R instead
+
+### Setting up my RStudio environment
+
+The first preparation stage involves setting up my RStudio environment for my analysis.
+
+The R chunk below automatically loads all packages included in the "rqd_pkgs" list, installing them first if required: this ensures all packages can be loaded by other analysts replicating my work, and minimises the effort required to modify the package list.
+
+```{r setup, include=FALSE}
+# Set up knitting options with the knitr package
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+
+# Load all required packages
+print("Loading packages...")
+
+rqd_pkgs <- c(
+  "dplyr",
+  "anytime",
+  "tidyverse",
+  "janitor",
+  "readr",
+  "ggplot2",
+  "kableExtra"
+)
+
+lapply(rqd_pkgs, function(pkg) {
+  if(!requireNamespace(pkg, quietly = FALSE)) {
+    cran_mirror <- "https://cran.r-project.org"
+    install.packages(as.character(pkg), repos = cran_mirror)
+  }
+  library(pkg, character.only = TRUE)
+})
+rm(rqd_pkgs)
+print("Loading packages complete.")
+```
+
+```{r set_dir, include=FALSE}
+# Set the working directory of the R markdown environment to match that of the console
+# Omitted from report: for working on my laptop specifically
+dir <- "/Users/nathanweaver/Library/CloudStorage/OneDrive-Personal/Documents/Professional/Google Data Cert/Course 8 - Capstone Project/Bellabeat Case Study"
+setwd(dir)
+cat("Set working directory to:", dir, "\n")
+```
+
+## Getting the data
+
+For this data analysis, I'll be making use of one public data set specified by Sršen, plus additional data sets as required to address any limitations found in that dataset.
+
+The data set specified by Sršen is the [FitBit Fitness Tracker Data Set](https://www.kaggle.com/datasets/arashnic/fitbit). This is a public data set available under the [CC0 License](https://creativecommons.org/share-your-work/public-domain/cc/) via [Kaggle user Mobius](https://www.kaggle.com/arashnic).
+
+For the initial analysis, the data set was downloaded in its entirety from Kaggle and stored locally on my computer. This provided a baseline for analysis, with any modifications to file names, folder re-structuring, or removal of unnecessary data tables to be conducted after I'm familiar with the raw data.
+
+### Loading the data
+
+To get a top-level view of the data, I first load all of the required data sets directly into the my R environment. Since all of the required data tables are in CSV format, I use the readr package to iterate over all .csv files in my source data directory, loading them into the environment and naming each new data frame after its source file.
+
+```{r load_data_cleaned}
+csv_dir <- "Fitabase_Data_Cleaned"
+paths_dfs <- list.files(csv_dir, pattern = "*.csv", full.names = TRUE)
+
+df_names <- paths_dfs %>%
+  basename() %>%
+  tools::file_path_sans_ext() 
+
+for (i in 1:length(df_names)) {
+  assign(df_names[i], read_csv(paths_dfs[i]))
+}
+```
+
+## Understanding the data
+### Overview
+
+The database contains data on the following features of the FitBit devices:
+
+| Feature                 | Units                  | Sampling Rate            |
+|:------------------------|:-----------------------|:-------------------------|
+| BMI                     | BMI                    | Manual/automatic logging |
+| Body Weight             | kg                     | Manual/automatic logging |
+| Body Fat                | %                      | Manual/automatic logging |
+| Calorie burn            | Calories               | 1 minute                 |
+| Distance                | Unknown                | 1 minute                 |
+| Heart Rate              | Beats per Minute (BPM) | 5 seconds                |
+| Intensity (of exercise) | Factor, 0 to 3         | 1 minute                 |
+| METs (during exercise)  | METs                   | 1 minute                 |
+| Sleep                   | Factor, 1 to 3         | 1 minute                 |
+| Steps                   | Steps                  | 1 minute                 |
+
+
+Some details of the data gathering are not yet clear to me:
+
+* The real-world meanings of the "Intensity" factor variable levels; presumably 3 is maximum intensity and 0 is inactivity.
+* The real-world meanings of the "Sleep" factor variable levels are; presumably it indicates "quality of sleep", with 3 being best.
+* What triggers the non-manual reports; presumably it's logged from another device, like a body composition analyser.
+
+### Inconsistent and misleading file names
+
+The file names in the data set present the following issues:
+
+* Unclear if data is source or summarized, e.g. "minuteCaloriesNarrow_merged.csv" is source data, while "dailyCalories_merged.csv" is summarized data
+* Summarized data not always tied to specific features, e.g. "dailyActivities_merged.csv" contains data summarized from multiple features: there is no "Activity" feature with an associated source data set.
+* Data shape unclear, e.g. "minuteCaloriesNarrow_merged.csv" and "dailyCalories_merged.csv" are both tall data, while "minuteIntensitiesWide_merged.csv" and "dailyIntensities_merged.csv" are both wide data
+* Data sampling rate unclear, e.g. "minuteSleep_merged.csv" compared to "daySleep_merged.csv"
+* Feature is not first in the file name, affecting file sort operations, e.g. "minuteSleep_merged.csv" is sorted closer to "minuteStepsNarrow_merged.csv" than to the related "daySleep_merged.csv"
+* All files are suffixed with "_merged", so no distinction is made by this information and it could be dropped
+
+To correct each of these issues, I'll rename the files using this naming convention:
+
+> [feature]\_[src/sum]\_[interval]\_[shape].[filetype]
+
+For example, "sleepDay_merged.csv" will be renamed to "sleep_sum_days_wide.csv".
+
+### Inconsistent variable names
+
+All variables in the data set are named in CapitalisedCase, whereas I would typically use snake_case by convention. This is a relatively minor issue that I could go without correcting, however a small number of variable names, like logId, are also inconsistently capitalised across different tables. Since I'll be adjusting some names anyway, and there's presumably a library function to change this with minimal effort, I'll put it on the data-cleaning to-do list.
+
+### Inappropriate variable types
+
+Some of the tables in the data set use variables of a type unsuitable for analysis. These variables and their required modifications are tabulated below:
+
+| Variable       | Original Type | Updated Type | Reason |
+|:---------------|:--------------|:-------------|:-------|
+| ActivityDay    | chr           | datetime     | Cannot perform datetime operations on chr variables |
+| ActivityHour   | chr           | datetime     | Cannot perform datetime operations on chr variables |
+| ActivityMinute | chr           | datetime     | Cannot perform datetime operations on chr variables |
+| Date           | chr           | datetime     | Cannot perform datetime operations on chr variables |
+| Id             | num           | chr          | Disable scientific notation and numerical operations (IDs are not a numeric value) |
+| LogId          | num           | chr          | Disable scientific notation and numerical operations (IDs are not a numeric value) |
+| SleepDay       | chr           | datetime     | Cannot perform datetime operations on chr variables |
+| Time           | chr           | datetime     | Cannot perform datetime operations on chr variables |
+
+### Missing context for numeric variables
+
+All of the numeric variables in the data set have clearly defined units except for "Distance". Distance does not appear to have a source data table: it's only included in the "activity_sum_wide_days" and "intensity_sum_wide_days" tables, and only as summary data grouped via Intensity level. Floating-point values between 0 and 1 are present, so it seems reasonable to assume this is either kilometers or miles, as opposed to meters or feet. No geographical information is given in the data set, so I can't assume the participants are from the U.S., where miles would be appropriate. Given miles and kilometers represent the same information on slightly different scales, any insights about different use cases between users should still be apparent, therefore I think it's reasonable to assume the distances are given in kilometers for this analysis.
+
+### Missing context for factor variables
+
+Two variables in the data set, exercise "Intensity" and sleep "Value", are numerical factors with no defined range. For these factors, I can't tell from the data alone whether all possible values that a FitBit can record are present. The values for exercise intensity, for example, range from 0 to 3; it could be the case that the FitBits used only generate four levels of intensity, but it could just as easily be the case that the values go up to 100 (i.e. a percentage). This has clear implications for our analysis: if 3 is the max, records of 3 indicate users wear their FitBits while exercising as hard as they can, whereas if 100 is the max, records of 3 indicate users wear their FitBits while sitting on the couch as hard as they can.
+
+With this in mind, I'm going to invest a bit of time to confirm the meaning of these variables before attempting to analyse them (read: about ten hours to investigate everything _and_ learn how to do it all in R _and_ learn how to make it look suitably pretty and coherent in RMarkdown).
+
+#### Validating "Exercise Intensity" by use of R
+
+I'll start by determining the range of values present in the Intensity data:
+
+``` {r find_intensity_min_max}
+cat("Min Intensity:", min(intensity_src_mins_tall$Intensity),
+    "\nMax Intensity:", max(intensity_src_mins_tall$Intensity), "\n", sep = "")
+```
+
+The "activity_sum_days_wide" table provides some context clues as to what the levels might mean: the table summarises Intensity data into four new variables which, based on their names, appear to be associated with intensity levels like so:
+
+1. Sedentary Minutes
+2. Lightly Active Minutes
+3. Fairly Active Minutes
+4. Very Active Minutes
+
+Let's see if I can confirm this by recreating the data with that naming convention:
+
+```{r compare_intensity_data}
+# Generate my version of sleepDay_merged for comparison with the original
+intensity_daily_sum_wide <- intensity_src_mins_tall %>%
+    mutate(activity_date_floored = floor_date(mdy_hms(ActivityMinute), unit = "days")) %>%
+    group_by(Id, activity_date_floored) %>%
+    summarize(
+        minutes_sedentary      = sum(case_when(Intensity == 0 ~ 1, TRUE ~ 0)),
+        minutes_lightly_active = sum(case_when(Intensity == 1 ~ 1, TRUE ~ 0)),
+        minutes_fairly_active  = sum(case_when(Intensity == 2 ~ 1, TRUE ~ 0)),
+        minutes_very_active    = sum(case_when(Intensity == 3 ~ 1, TRUE ~ 0))
+    ) %>%
+    mutate(Id_ActivityDate_UID = paste(Id, activity_date_floored, sep = "_")) %>%
+    arrange(Id, activity_date_floored, Id_ActivityDate_UID)
+
+# Compare both versions of the data and return any dates with different values
+intensity_daily_comp <- activity_sum_days_wide %>%
+    mutate(ActivityDate_floored = floor_date(mdy(ActivityDate), unit = "days")) %>%
+    mutate(Id_ActivityDate_UID = paste(Id, ActivityDate_floored, sep = "_")) %>%
+    with(merge(
+        .,
+        intensity_daily_sum_wide,
+        by = c("Id_ActivityDate_UID"),
+        all = TRUE
+    )
+    ) %>%
+    mutate(diff_minutes_sedentary      = minutes_sedentary      - SedentaryMinutes     ) %>%
+    mutate(diff_minutes_lightly_active = minutes_lightly_active - LightlyActiveMinutes ) %>%
+    mutate(diff_minutes_fairly_active  = minutes_fairly_active  - FairlyActiveMinutes  ) %>%
+    mutate(diff_minutes_very_active    = minutes_very_active    - VeryActiveMinutes    ) %>%
+    select(
+        Id_ActivityDate_UID,
+        diff_minutes_sedentary,
+        diff_minutes_lightly_active,
+        diff_minutes_fairly_active,
+        diff_minutes_very_active
+    ) %>%
+    filter(!(diff_minutes_sedentary == 0 & 
+                 diff_minutes_lightly_active == 0 & 
+                 diff_minutes_fairly_active == 0 & 
+                 diff_minutes_very_active == 0)
+    ) %>%
+    arrange(Id_ActivityDate_UID)
+
+# For this table, glimpse() shows enough to demonstrate the validity of the method
+glimpse(intensity_daily_comp)
+```
+
+The approach above appears to work perfectly, with the exception of the "sedentary minutes" calculation, which is consistently higher in my version.
+
+I think its safe to conclude that I got the mapping correct, given that:
+a) It's consistently higher by at least 6 hours, which I suspect is caused by my method counting time asleep as "sedentary minutes" - which is not _technically_ wrong, you know - and
+b) Reversing the order of the mapping produces entirely wrong results.
+
+That being said, I still don't know if these are the categories FitBits work in, not another naming convention that the data authors came up with, and I don't know if all FitBit models work this way, so let's do something I should have done from the start: read the manuals.
+
+#### Validating "Exercise Intensity" by reading of manuals
+
+Activity trackers like FitBits detect activity intensity partly by measuring the user's heart rate while exercising: a higher heart rate corresponds with a higher degree of exertion. As of April 2016, the three latest FitBit models with heart-rate tracking were:
+
+* FitBit Blaze [(released January 2016)](https://www.youtube.com/watch?v=3k3DNT54NkA)
+* FitBit Charge HR [(released January 2015)](https://blog.fitbit.com/charge-hr-and-surge-available-now-plus-new-charge-colors/)
+* FitBit Surge [(released January 2015)](https://blog.fitbit.com/charge-hr-and-surge-available-now-plus-new-charge-colors/)
+
+A quick look through the product manuals for each model confirms they all break down user activity into four default heart-rate zones:
+
+|Product|HR Zone 1|HR Zone 2|HR Zone 3|HR Zone 4|
+|:------|:----:|:----:|:----:|:----:|
+|[FitBit Blaze](https://staticcs.fitbit.com/content/assets/help/manuals/manual_blaze_en_US.pdf)           |"Out of Zone"|"Fat burn"|"Cardio"|"Peak"|
+|[FitBit Charge HR](https://staticcs.fitbit.com/content/assets/help/manuals/manual_charge_hr_en_US.pdf)   |"Out of Zone"|"Fat burn"|"Cardio"|"Peak"|
+|[FitBit Surge](https://myhelp.fitbit.com/resource/manual_surge_en_US)                                    |"Out of Zone"|"Fat burn"|"Cardio"|"Peak"|
+
+While these aren't exactly the same terms as used in the data set, they're clearly related - "Out of Zone" equates to "Sedentary", for example. 
+
+All three FitBit manuals also make the same claim that the default zones are "based on American Heart Association recommendations". Even without [validating that claim](https://www.heart.org/en/healthy-living/fitness/fitness-basics/aha-recs-for-physical-activity-in-adults), it indicates to me that the reasoning behind each zone is not arbitrary, and is consistent across devices, so I think I can assume any other FitBit models circa 2016 would follow the same classification scheme.
+
+At this point, I'm satisfied that the below are the only four intensity levels I need to consider when analysing the data set, regardless of what models of FitBits were being used:
+
+1. Sedentary Minutes
+2. Lightly Active Minutes
+3. Fairly Active Minutes
+4. Very Active Minutes
+
+#### Validating "Sleep Quality" by use of R _and_ reading of manuals
+
+As with exercise intensity, I start by determining the range of values present in the data:
+
+``` {r find_sleep_min_max}
+cat("Min Sleep:", min(sleep_src_mins_tall$value),
+    "\nMax Sleep:", max(sleep_src_mins_tall$value), "\n", sep = "")
+```
+
+The values for sleep quality range from 1 to 3. The summary data tables for sleep quality introduce only two new variable names: "Total Time In Bed", and "Total Minutes Asleep". There's not a valid name for each level of factor like there was for exercise, so in this case we go straight back to the manuals:
+
+* Blaze: tracks "both your time spent asleep and your sleep quality"
+* Charge HR: tracks "the hours you sleep and your movement during the night"
+* Surge: tracks "the hours you sleep and your movement during the night"
+
+Further poking around the FitBit help pages on [how to track sleep stats](https://help.fitbit.com/articles/en_US/Help_article/1314.htm) and [what they all mean](https://help.fitbit.com/articles/en_US/Help_article/2163.htm) reveals that different devices track slightly different data if they have heart rate tracking:
+
+* No HR tracking: Generic sleep quality tracking with "Time spent awake, restless, and asleep" categories
+* HR tracking: Sleep stage tracking with "Light Sleep, Deep Sleep, and REM Sleep" stages
+
+The help pages also single out the Charge HR and the Surge as the only HR-tracking FitBits to _not_ have full sleep stage tracking, leaving the Blaze as the only device from this time period with that feature. Blaze aside, motion-based sleep quality tracking appears to go all the way back to the [FitBit One](https://myhelp.fitbit.com/s/products?language=en_US&p=one). Given this information, it seems fair to assume the following mapping for the sleep data:
+
+* 1: Awake
+* 2: Restless
+* 3: Asleep
+
+I can confirm this mapping by attempting to recreare duplicate the summary data in sleepDay_merged:
+
+As with the intensity data, I can confirm this by recreating the data with that naming convention:
+
+```{r compare_sleepDay_data}
+# Generate my version of sleepDay_merged for comparison with the original
+sleep_src_mins_tall_NW <- sleep_src_mins_tall %>%
+    # mutate(date_typed = mdy_hms(date)) %>%
+    mutate(date_floored = floor_date(mdy_hms(date), unit = "days")) %>%
+    # Sum time asleep for each Log ID
+    group_by(logId) %>%
+    summarize(
+        "Id" = min(Id),
+        # Associate each Log ID with the latest date recorded under it
+        "SleepDay" = max(date_floored),
+        "minutes_in_bed"   = n(),
+        "minutes_awake"    = sum(case_when(value == 3 ~ 1, TRUE ~ 0)),
+        "minutes_restless" = sum(case_when(value == 2 ~ 1, TRUE ~ 0)),
+        "minutes_asleep"   = sum(case_when(value == 1 ~ 1, TRUE ~ 0))
+    ) %>%
+    # Sum time asleep for each date based on SleepDay
+    group_by(Id, SleepDay) %>%
+    summarize(
+        "TotalSleepRecords_2" = n(),
+        "TotalMinutesAsleep_2" = sum(minutes_asleep),
+        "TotalTimeInBed_2" = sum(minutes_in_bed),
+        "TotalMinutesAwake" = sum(minutes_awake),
+        "TotalMinutesRestless" = sum(minutes_restless),
+    ) %>%
+    mutate("Id_SleepDay_UID" = paste(Id, SleepDay, sep = "_")) %>%
+    arrange(Id_SleepDay_UID)
+
+# Compare both versions of the data and return any dates with different values
+sleepDay_comp <- sleep_sum_days_wide %>%
+    # mutate("SleepDay_typed" = mdy_hms(SleepDay)) %>%
+    mutate("SleepDay_floored" = floor_date(mdy_hms(SleepDay), unit = "days")) %>%
+    mutate("Id_SleepDay_UID" = paste(Id, SleepDay_floored, sep = "_")) %>%
+    arrange(Id_SleepDay_UID) %>%
+    with(merge(
+        .,
+        sleep_src_mins_tall_NW,
+        by = c("Id_SleepDay_UID"),
+        all = TRUE
+    )
+    ) %>%
+    mutate(recordDiff = TotalSleepRecords_2 - TotalSleepRecords) %>%
+    mutate(sleepDiff = TotalMinutesAsleep_2 - TotalMinutesAsleep) %>%
+    mutate(bedDiff = TotalTimeInBed_2 - TotalTimeInBed) %>%
+    select(
+        Id_SleepDay_UID,
+        recordDiff,
+        sleepDiff,
+        bedDiff
+    ) %>%
+    filter(!(recordDiff == 0 & sleepDiff == 0 & bedDiff == 0)) %>%
+    arrange(Id_SleepDay_UID)
+
+# For this table, glimpse() shows enough to demonstrate the validity of the method
+glimpse(sleepDay_comp)
+```
+
+I was able to recreate the existing sleep_src_mins_tall table almost perfectly by summing sleep times per Log ID, with the latest date associated with each Log ID being used as the "date" for that sleep. In practice it turns out I had the mapping inverted, and actually the following is used:
+
+* 1: Asleep
+* 2: Restless
+* 3: Awake
+
+So I guess read that as "1 is highest-quality sleep, 3 is worst-quality".
+
+My version of the data contains a few rows that vary slightly from the original, by 1 to 22 minutes. I haven't been able to determine the source of this error, but they're more than close enough to confirm I don't have the factor level mapping backwards, so I'm ready to proceed.
+
+### Duplicate data between tables
+
+The data set includes some tables that contain source data for a given feature, e.g. heart-rate tracking, and others that contain summary data, e.g. everything in the "activity_days_sum_wide" table. 
+
+Some of these are useful, for instance: 
+
+* dailyActivities_merged.csv calculates Sedentary Minutes by excluding time spent asleep. This either requires clever/time-consuming cross-referencing with other tables, or is raw data from a calculation performed on the FitBit itself: either way, I don't want to have to do it again
+* sleepDay_merged.csv summarises sleep on a per-night basis, which is more useful for comparing users than the raw, minute-by-minute sleep data
+
+Others are not useful, for instance: 
+
+* calories_sum_mins_wide.csv, intensity_sum_mins_wide.csv, and steps_sum_mins_wide.csv all just pivot minute-level data into one 60-column row per hour containing the same data
+* minuteIntensitiesWide_merged.csv just sums and averages intensity per hour
+
+Those tables that do not provide useful summaries can be excluded from the data analysis: if a specific need is found for their data, they can be reloaded or recreated manually as required.
+
+### Duplicate data within tables
+
+The "bodycomp_logs_src_wide.csv" file contains both kilogram and pound variables: these describe the same information, and all of the observations contain values for both variables, so one variable can be dropped with no loss of data. The choice between the two formats seems arbitrary for my analysis, so I'm choosing to keep the kilos data as its expressed in an SI unit.
+
+intensity_sum_hours_wide.csv contains Total Intensity and Average Intensity. Total intensity values exceed 4, the maximum for intensity, and so are not actually useful. Average Intensity is just the Total Intensity for each hour divided by 60 minutes per hour.
+
+# Step 3: Clean
+## TODO: Cleaning Checklist
+
+* Sources of errors: Did you use the right tools and functions to find the source of the errors in your dataset?
+* Null data: Did you search for NULLs using conditional formatting and filters
+* Misspelled words: Did you locate all misspellings?
+* Mistyped numbers: Did you double-check that your numeric data has been entered correctly?
+* Extra spaces and characters: Did you remove any extra spaces or characters using the TRIM function?
+* Duplicates: Did you remove duplicates in spreadsheets using the Remove Duplicates function or DISTINCT in SQL?
+* Mismatched data types: Did you check that numeric, date, and string data are typecast correctly?
+* Messy (inconsistent) strings: Did you make sure that all of your strings are consistent and meaningful?
+* Messy (inconsistent) date formats: Did you format the dates consistently throughout your dataset?
+* Misleading variable labels (columns): Did you name your columns meaningfully?
+* Truncated data: Did you check for truncated or missing data that needs correction?
+* Business Logic: Did you check that the data makes sense given your knowledge of the business? 
+
+* Update file names
+* Clean variable names
+* Update variable names
+* Update variable types
+
+
+
+## Update file names
+
+For this analysis, I'll rename the files to use this naming convention:
+
+> [feature]\_[src/sum]\_[interval]\_[shape].[filetype]
+
+Applying the naming convention to the data set yields the following file names:
+
+| Original                           | Updated                        |
+|:-----------------------------------|:-------------------------------|
+| dailyActivity_merged.csv           | activity_sum_days_wide.csv     |
+| dailyCalories_merged.csv           | calories_sum_days_tall.csv     |
+| dailyIntensities_merged.csv        | intensity_sum_days_wide.csv    |
+| dailySteps_merged.csv              | steps_sum_days_tall.csv        |
+| heartrate_seconds_merged.csv       | heartrate_src_seconds_tall.csv |
+| hourlyCalories_merged.csv          | calories_sum_hours_tall.csv    |
+| hourlyIntensities_merged.csv       | intensity_sum_hours_wide.csv   |
+| hourlySteps_merged.csv             | steps_sum_hours_tall.csv       |
+| minuteCaloriesNarrow_merged.csv    | calories_src_mins_tall.csv     |
+| minuteCaloriesWide_merged.csv      | calories_sum_mins_wide.csv     |
+| minuteIntensitiesNarrow_merged.csv | intensity_src_mins_tall.csv    |
+| minuteIntensitiesWide_merged.csv   | intensity_sum_mins_wide.csv    |
+| minuteMETsNarrow_merged.csv        | mets_src_mins_tall.csv         |
+| minuteSleep_merged.csv             | sleep_src_mins_tall.csv        |
+| minuteStepsNarrow_merged.csv       | steps_src_mins_tall.csv        |
+| minuteStepsWide_merged.csv         | steps_sum_mins_wide.csv        |
+| sleepDay_merged.csv                | sleep_sum_days_wide.csv        |
+| weightLogInfo_merged.csv           | bodycomp_src_logs_wide.csv     |
+
+
+```{r glimpse_data, include=FALSE, eval=FALSE}
+# Glimpse all data frames for a quick overview of the data set
+# Omitted from report and evaluation: for personal viz purposes only
+for (name in df_names) {
+    df <- get(name)
+    cat("\n", "Dataframe: ", name, "\n", sep = "")
+    str(df)
+}
+```
+
+## Clean and update variable names
+
+
+
+``` {r clean_variable_names}
+for (name in df_names) {
+    cat("\n", "colnames(", name, ") Unclean:\n", sep = "")
+    print(colnames(get(name)))
+    
+    assign(name, get(name) %>% clean_names())
+    
+    cat("\n", "colnames(", name, ") Cleaned:\n", sep = "")
+    print(colnames(get(name)))
+}
+```
+
+``` {r update_variable_names}
+# Create a data frame containing all of the replacements to be made
+print("Renaming variables... ")
+renames <- data.frame(
+    old = character(0),
+    new  = character(0),
+    table = character(0)
+)
+# WARNING: changes without a specified table will ALWAYS be applied to matching column names, even if this interferes with a table-specific change
+renames <- renames %>%
+    rbind(.,data.frame(old = "activity_date",              new = "date",                       table = "")) %>%
+    rbind(.,data.frame(old = "activity_day",               new = "date",                       table = "")) %>%
+    rbind(.,data.frame(old = "fairly_active_distance",     new = "distance_fairly_active",     table = "")) %>%
+    rbind(.,data.frame(old = "fairly_active_minutes",      new = "minutes_fairly_active",      table = "")) %>%
+    rbind(.,data.frame(old = "light_active_distance",      new = "distance_lightly_active",    table = "")) %>%
+    rbind(.,data.frame(old = "light_active_minutes",       new = "minutes_lightly_active",     table = "")) %>%
+    rbind(.,data.frame(old = "lightly_active_distance",    new = "distance_lightly_active",    table = "")) %>%
+    rbind(.,data.frame(old = "lightly_active_minutes",     new = "minutes_lightly_active",     table = "")) %>%
+    rbind(.,data.frame(old = "logged_activities_distance", new = "distance_logged_activities", table = "")) %>%
+    rbind(.,data.frame(old = "me_ts",                      new = "mets",                       table = "")) %>%
+    rbind(.,data.frame(old = "sedentary_active_distance",  new = "distance_sedentary",         table = "")) %>%
+    rbind(.,data.frame(old = "sedentary_distance",         new = "distance_sedentary",         table = "")) %>%
+    rbind(.,data.frame(old = "sedentary_active_minutes",   new = "minutes_sedentary",          table = "")) %>%
+    rbind(.,data.frame(old = "sedentary_minutes",          new = "minutes_sedentary",          table = "")) %>%
+    rbind(.,data.frame(old = "sleep_day",                  new = "date",                       table = "")) %>%
+    rbind(.,data.frame(old = "step_total",                 new = "steps_total",                table = "")) %>%
+    rbind(.,data.frame(old = "total_distance",             new = "distance_total",             table = "")) %>%
+    rbind(.,data.frame(old = "total_intensity",            new = "intensity_total",            table = "")) %>%
+    rbind(.,data.frame(old = "total_minutes_asleep",       new = "sleep_minutes_asleep_total", table = "")) %>%
+    rbind(.,data.frame(old = "total_sleep_records",        new = "sleep_records_total",        table = "")) %>%
+    rbind(.,data.frame(old = "total_time_in_bed",          new = "sleep_minutes_bed_total",    table = "")) %>%
+    rbind(.,data.frame(old = "tracker_distance",           new = "distance_tracker",           table = "")) %>%
+    rbind(.,data.frame(old = "value",                      new = "heart_rate", table = "heartrate_src_seconds_tall")) %>%
+    rbind(.,data.frame(old = "value",                      new = "sleep_rank", table = "sleep_src_mins_tall")) %>%
+    rbind(.,data.frame(old = "very_active_distance",       new = "distance_very_active",       table = "")) %>%
+    rbind(.,data.frame(old = "very_active_minutes",        new = "minutes_very_active",        table = ""))
+print(renames)
+
+# For each table
+for (df_name in df_names) {
+    # Print "before" column names
+    cat("\ncolnames(", df_name, ") pre-rename: \n", sep = "") 
+    print(colnames(get(df_name)))
+    for (col_name in colnames(get(df_name))) {
+        cat("Renaming: ", df_name, "$", col_name, "... ", sep = "")
+        col_name_match_indexes <- which(renames$old == col_name)
+        if(length(col_name_match_indexes) == 0) {
+            cat("Not found. Done.", "\n", sep = "")
+        } else {
+            cat(length(col_name_match_indexes), " matches found... ", sep = "")
+            for (index in col_name_match_indexes) {
+                table_name <- renames$table[index]
+                cat("table_name = \"", table_name, "\"... ", sep = "")
+                if (table_name != "" && df_name != table_name) {
+                    cat("Incorrect... ", sep = "")
+                } else {
+                    old_name <- renames$old[index]
+                    new_name <- renames$new[index]
+                    cat("Correct. Replacing \"", old_name, "\" with \"", new_name, "\"... ", sep = "")
+                    # TODO: the actual replacing
+                    assign(df_name, df <- get(df_name) %>% rename(!!new_name := !!old_name))
+                    cat("Done.", "\n", sep = "")
+                    # Only replace on first match
+                    break()
+                }
+            }
+        } 
+    }
+    # Print "after" column names
+    cat("\ncolnames(", df_name, ") post-rename: \n", sep = "") 
+    print(colnames(get(df_name)))
+}
+print("Renaming variables complete. ")
+```
+
+## TODO: Update variable types
+
+| Variable        | Original Type | Updated Type | Reason                                                           |
+|:----------------|:--------------|:-------------|:-----------------------------------------------------------------|
+| activity_day    | chr           | datetime     | Cannot perform datetime operations on chr variables              |
+| activity_hour   | chr           | datetime     | Cannot perform datetime operations on chr variables              |
+| activity_minute | chr           | datetime     | Cannot perform datetime operations on chr variables              |
+| date            | chr           | datetime     | Cannot perform datetime operations on chr variables              |
+| id              | num           | chr          | Disable numerical operations (IDs are considered a UID string)   |
+| log_id          | num           | chr          | Disable numerical operations (IDs are considered a UID string)   |
+| time            | chr           | datetime     | Cannot perform datetime operations on chr variables              |
+| sleep_rank      | num           | factor 1:3   | Disable numerical operations (value is a ranking, not an amount) |
+| intensity       | num           | factor 1:4   | Disable numerical operations (value is a ranking, not an amount) |
+
+* factor variables replaced with factor=n:m format
+
+
+``` {r update_variable_types_setup echo = FALSE}
+# Bulk recast of variables with more than one occurrence
+retypes <- data.frame (
+    name = character(0),
+    new_type = character(0)
+)
+retypes <- retypes %>%
+  rbind(., data.frame(name = "id",              new_type = "chr")) %>%
+  rbind(., data.frame(name = "log_id",          new_type = "chr")) %>%
+  rbind(., data.frame(name = "activity_day"   , new_type = "datetime")) %>%
+  # rbind(., data.frame(name = "activity_hour"  , new_type = "datetime")) %>%
+  # rbind(., data.frame(name = "activity_minute", new_type = "datetime")) %>%
+  rbind(., data.frame(name = "date",            new_type = "datetime")) %>%
+  rbind(., data.frame(name = "time",            new_type = "datetime"))
+print(retypes)
+```
+
+``` {r update_variable_types_bulk}
+for (df_name in df_names) {
+  print(df_name)
+  df <- get(df_name)
+  for (i in 1:nrow(retypes)) {
+    col_name <- retypes$name[i]
+    col_type_new <- retypes$new_type[i]
+    if (col_name %in% colnames(df)) {
+      if (col_type_new == "datetime") {
+        cat("INFO: Converting ", df_name, "$", col_name, " to datetime... \n", sep = "")
+        df <- df %>% mutate("{col_name}" := anytime(!!sym(col_name)))
+        cat("Done.\n")
+      } else if (col_type_new == "chr") {
+        # mutate needs the name of the column only, so we use glue syntax to interpolate the correct name from the env-variable chr vector
+        # as.character requires the actual data of the column,so we turn the col_name env-var, in this case a string, into a symbol so it can point to the right data column, then we unquote it to get the actual data itself
+        cat("INFO: Converting ", df_name, "$", col_name, " to character \n", sep = "")
+        df <- df %>% mutate("{col_name}" := as.character(!!sym(col_name)))
+        cat("Done.\n")
+      } else {
+        print("col_type_new not found: not converting.")
+      }
+    }
+  }
+  # assign(df_name, df)
+  # str(get(df_name))
+}
+```
+
+``` {r update_variable_types_small}
+# Individual recast of variables with only one occurrence
+str(sleep_src_mins_tall)
+sleep_src_mins_tall <- sleep_src_mins_tall %>%
+    mutate(sleep_rank = factor(sleep_rank, levels = 1:3, labels = c("Asleep", "Restless", "Awake")))
+str(sleep_src_mins_tall)
+
+str(intensity_src_mins_tall)
+intensity_src_mins_tall <- intensity_src_mins_tall %>%
+    mutate(intensity = factor(intensity, levels = 1:4, labels = c("Sedentary", "Lightly Active", "Fairly Active", "Very Active")))
+str(intensity_src_mins_tall)
+```
+
+``` {r, data_conversion, eval=FALSE}
+str(sleep_src_mins_tall)
+sleep_src_mins_tall_retyped <- sleep_src_mins_tall %>%
+  mutate(date := mdy_hms(date))
+View(sleep_src_mins_tall_retyped)
+```
+
+## TODO: Transform into tidy data frames
+
+Of all the source data tables, only the body comp data is presented in wide format. The source wide data includes columns for Mass, Fat Percentage, and BMI. These will be split out into individual tall-format data tables for individual analysis
+
+## TODO: Remove duplicate data
+
+* sleepday(?): Data for Id 4702921684, 5/7/2016, is duplicated.
+* bodycomp_logs_src_wide.csv: drop pounds when splitting into tall data tables
+* intensity_sum_hours_wide.csv: total intensity not required
+
+## TODO: Exclude unnecessary tables
+
+* intensity_sum_hours_wide.csv
+* calories_sum_mins_wide.csv
+* intensity_sum_mins_wide.csv
+* steps_sum_mins_wide.csv
+
+## TODO: Exclude unnecessary table columns
+
+* all intensity_sum_ tables except intensity_sum_wide_hours
+
+# TODO Step 4: Analyse
+In which I do my actual analysis
+
+## Analysing function usage
+
+### Method
+
+This part of the analysis uses the unique IDs to determine what proportion of the sample base uses each feature:
+<ol>
+  <li>For each data frame:
+    <ol>
+      <li>Count number of unique IDs in data frame</li>
+      <li>Add all unique IDs into id vector</li>
+    </ol>
+  </li>
+  <li>For each data frame:
+    <ol>
+      <li>Calculate unique ID number as percentage of total unique IDs</li>
+    </ol>
+  </li>
+  <li>Generate bar-graph showing utilisation rate of each feature:
+    <ol>
+      <li>Shown initially as a proportion for every data frame</li>
+      <li>Summarized into proportions for one indicative data frame per feature</li>
+    </ol>
+  </li>
+</ol>
+
+
+### Implementation
+
+NOOOOOOOOO
+
+I can't just look at which features are used by 33 users, i.e. group by feature then count IDs: I also need to group by ID and count features. This allows us to investigate which users go with which dataset: are the people who don't use MET tracking the same as the people who don't use HR tracking, for instance
+
+
+
+```{r, count_unique_IDs_by_feature}
+#TODO: Collate databases by feature type
+
+# Note variable names use "Id" instead of "ID" by convention for consistency with database column names
+feature_names = c(
+  "heartrate_seconds_merged",
+  "minuteCaloriesNarrow_merged",
+  "minuteIntensitiesNarrow_merged",
+  "minuteMETsNarrow_merged",
+  "minuteStepsNarrow_merged",
+  "sleep_src_mins_tall",
+  "weightLogInfo_merged"
+)
+
+column_names <- c("name", "Id_count")
+unique_Id_counts <- data.frame(matrix(nrow = 0, ncol = length(column_names)))
+colnames(unique_Id_counts) <- column_names
+
+unique_Ids <- vector("numeric")
+
+# Determine the number of unique Ids present in each dataframe
+for (name in feature_names) {
+  df <- get(name)
+  unique_Ids_in_df <- unique(df$Id)
+  unique_Ids <- unique(c(unique_Ids, unique_Ids_in_df))
+  # Extract count of unique IDs for current dataframe
+  new_row <- data.frame(name, length(unique_Ids_in_df))
+  colnames(new_row) <- column_names
+  unique_Id_counts <- rbind(unique_Id_counts, new_row)
+}
+unique_Id_counts$name <- reorder(unique_Id_counts$name, unique_Id_counts$Id_count, decreasing = TRUE)
+
+```
+
+```{r, viz_unique_IDs_by_feature}
+ggplot(unique_Id_counts, aes(name, Id_count)) +
+  geom_col() +
+  coord_cartesian(ylim=c(0L, length(unique_Ids))) +
+  theme(axis.text.x=element_text(angle=45, hjust=1)) +
+  labs(x="Dataframes", y="Unique ID Count", title="Unique ID Counts for Fitabase Dataframes")
+```
+
+```{r, count_features_by_unique_ID}
+
+
+```
+
+```{r, viz_features_by_unique_ID}
+
+```
+
+### Findings
+The most used features were:
+* Calorie Tracking
+* Exercise Intensity Tracking
+* Exercise MET Tracking
+* Step Tracking
+
+These features were used by all 33 participants in the database. 
+
+The least used features were:
+* Weight logging
+* Sleep logging
+* Heart-rate monitoring
+
+
+
+
+
+### Note on different FitBit devices
+
+The dataset does not indicate what type of FitBit each participant was using: it is possible the less-used features are unavailable on certain devices. This has a few potential implications:
+
+* Those consumers who don't use all would like to use the features on fully-featured FitBits, but other factors drive them to purchase FitBits with fewer features, e.g. cost
+* 
+
+### MET Tracking and why Bellabeat doesn't require it
+
+All of the most-used features from the database are available on the Bellabeat Ivy except MET tracking. The MET (Metabolic Equivalent of Task) is a unit of measurement for energy expenditure, or exertion, intended to aid direct comparison between different types of exercise. The Ivy does not generate MET data, but does track calories burnt, which can also be used as a measure of exertion. I recommend presenting calorie tracking as a suitable alternative when targeting advertising at those customers who use the MET tracking feature.
+
+Note that the two features are nearly equivalent and may not present any meaningful distinction to customers; I will be conducting 
+
+## Analysing the most-used features
+
+In order to develop a targeted marketing strategy for the Ivy, 
+
+### Consumer Behaviors w.r.t. Calorie Tracking vs. MET Tracking
+
+### Display data for first-glance analysis
+
+``` {r, data_display, include=FALSE, eval=FALSE}
+selected_Id <- "1503960366"
+sleepDay_merged_oneId <- sleepDay_merged %>%
+  filter(Id == selected_Id)
+  
+ggplot(data = sleepDay_merged_oneId) +
+  geom_point(
+    mapping = aes(
+      x = SleepDay,
+      y = TotalMinutesAsleep,
+      colour = Id
+    )
+  )
+
+sleep_src_mins_tall_oneId <- sleep_src_mins_tall %>%
+  filter(Id == selected_Id)
+  
+ggplot(data = sleep_src_mins_tall_oneId) +
+  geom_point(
+    mapping = aes(
+      x = date,
+      y = value,
+      colour = Id
+    )
+  )
+```
+
+
+# TODO Step 5: Share
+
+In which I present all of my key findings and their supporting visualisations
+
+# TODO Step 6: Act
+
+In which I summarise my recommendations

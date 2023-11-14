@@ -1,0 +1,18 @@
+## Selecting My Tools
+
+I've chosen to perform the majority of this analysis in R, for the following reasons:
+
+* R is computationally powerful enough to handle the large data sets I'm using
+* R includes tools for a wide range of data manipulation and analysis tasks
+* R includes tools for high-quality visualisation of my analyses
+* R source files provide a way to store, modify, and share my analysis methodology down to the exact code used, separate to the raw data
+* R Markdown files provide a workflow that allows me to structure and explain the thinking in my source analysis files using plain English non-code elements, then translate that structure directly into a report
+
+Other tools considered but not used include:
+* Spreadsheet tools like Excel and Google Sheets
+  + Provide easy data
+  + Run into issues with file size almost immediately. Some of the data tables in the FitBit data set include millions of observations, which is not uncommon for data sets but well beyond what Excel can handle without experiencing significant slowdown.
+
+I also considered database tools like SQL for this analysis, but did not consider them fully-featured enough for this analysis. While tools like SQL would be more than powerful enough to manipulate large data sets, they don't provide any of the tools for visualising the resultant analysis that I need. Other tools, like R, provide these visualisation tools without sacrificing power.
+
+Note that Python was not considered for this analysis: it shares most of the same features, advantages, and disadvantages as R, but I'm already familiar with Python and wanted to use this case study to familiarise myself with R instead.
