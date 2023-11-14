@@ -59,7 +59,105 @@ cat("DEBUG\tReading CSVs done.\n", sep = "")
 
 # Cleaning data ----
 
-# Setting up var_mods ----
+## Function Declarations ----
+
+are_identical_lists <- function(list1, list2) {
+  if (length(list1) != length(list2)) {
+    return(FALSE)
+  }
+  for (i in seq_along(list1)) {
+    if(!identical(list1[[i]], list2[[i]])) {
+      cat("Non-identical lists at list1[",i,"]. Exiting.\n", sep = "")
+      print(list1[[i]])
+      print(list2[[i]])
+      return(FALSE)
+    }
+  }
+  return(TRUE)
+}
+
+get_df_var_types <- function(df_name) {
+  cat("DEBUG\tGetting current variable types for ", df_name, "...", sep = "")
+  df <- get(df_name)
+  var_types <- data.frame(
+    var = names(df),
+    type = sapply(df, function(col) class(col)[1])
+  )
+  cat("Done.\n", sep = "")
+  return(var_types)
+}
+
+get_df_target_var_types <- function(df_name) {
+  cat("DEBUG\tGetting target variable types for ", df_name, "...", sep = "")
+  var_types <- get_df_var_types(df_name)
+  # Iterate over rows in current var_types
+  for (var_row in 1:nrow(var_types)) {
+    # Check if var name is in var_mods_recast
+    var_name <- var_types$var[var_row]
+    for(mods_row in 1:nrow(var_mods_recast)) {
+      var_name_mods <- var_mods_recast$var_new[mods_row]
+      # If no, skip: if yes, replace type with target
+      if(var_name == var_name_mods) {
+        type_new <- var_mods_recast$type_new[mods_row]
+        cat("DEBUG\tUpdating ", var_name, " from ", var_types$type[var_row], " to ", var_mods_recast$type_new[mods_row], "...\n", sep = "")
+        var_types$type[var_row] <- type_new
+      }
+    }
+  }
+  cat("Done.\n", sep = "")
+  return(var_types)
+}
+
+recast_variables <- function(df_name) {
+  df <- get(df_name)
+  for (i in 1:nrow(var_mods_recast)) {
+    var_new <- var_mods_recast$var_new[i]
+    type_new <- var_mods_recast$type_new[i]
+    if (var_new %in% colnames(df)) {
+      cat("DEBUG\tConverting ",df_name,"$",var_new," to ",type_new, "... ", sep = "")
+      if (type_new == "character") {
+        df <- df %>% mutate("{var_new}" := as.character(!!sym(var_new)))
+      } else if (type_new == "Date") {
+        df <- df %>% mutate("{var_new}" := mdy(!!sym(var_new)))
+      } else if (type_new == "POSIXct") {
+        df <- df %>% mutate("{var_new}" := mdy_hms(!!sym(var_new)))
+      } else {
+        cat("type_new not found: not converting.", sep = "")
+      }
+      cat("Done.\n", sep = "")
+    }
+  }
+  return(df)
+}
+
+rename_df_variables <- function(df_name) {
+  cat("DEBUG\tRenaming ",df_name,"...\n", sep = "")
+  df <- get(df_name)
+  # Check each var name requiring correction against the var names in the df
+  for (i in 1:nrow(var_mods_rename)) {
+    var_old = var_mods$var_old[i]
+    if (!(var_old %in% colnames(df))) {
+      next
+    }
+    # If found, make sure the conversion is applicable to this or all dfs
+    tbl <- var_mods$tbl[i]
+    if (tbl != "" && tbl != df_name) {
+      next
+    }
+    # Perform the conversion if all checks passed
+    var_new = var_mods$var_new[i]
+    cat("DEBUG\tdf: ",df_name, "\tvar_old: ",var_old,"\t",sep="")
+    cat("var_new: ",var_new,"\t", sep="")
+    cat("tbl: ",tbl,"    ", sep="")
+    cat("Replacing... ", sep = "")
+    df <- df %>% rename(!!var_new := !!var_old)
+    cat("Done.\n", sep = "")
+  }
+  cat("DEBUG\tRenaming ",df_name," complete.\n", sep = "")
+  return(df)
+}
+
+## Global Variable Declarations ----
 
 var_mods <- data.frame(
   var_old = character(0),
@@ -111,74 +209,7 @@ var_mods_rename <- var_mods %>%
 var_mods_recast <- var_mods %>%
   filter(type_new != "")
 
-# Setting up functions ----
-
-rename_df_variables <- function(df_name) {
-  cat("DEBUG\tRenaming ",df_name,"...\n", sep = "")
-  df <- get(df_name)
-  # Check each var name requiring correction against the var names in the df
-  for (i in 1:nrow(var_mods_rename)) {
-    var_old = var_mods$var_old[i]
-    if (!(var_old %in% colnames(df))) {
-      next
-    }
-    # If found, make sure the conversion is applicable to this or all dfs
-    tbl <- var_mods$tbl[i]
-    if (tbl != "" && tbl != df_name) {
-      next
-    }
-    # Perform the conversion if all checks passed
-    var_new = var_mods$var_new[i]
-    cat("DEBUG\tdf: ",df_name, "\tvar_old: ",var_old,"\t",sep="")
-    cat("var_new: ",var_new,"\t", sep="")
-    cat("tbl: ",tbl,"    ", sep="")
-    cat("Replacing... ", sep = "")
-    df <- df %>% rename(!!var_new := !!var_old)
-    cat("Done.\n", sep = "")
-  }
-  cat("DEBUG\tRenaming ",df_name," complete.\n", sep = "")
-  return(df)
-}
-
-rename_df_variables_byGlobalDF <- function(df) {
-  # Check each var name requiring correction against the var names in the df
-  for (i in 1:nrow(var_mods_rename)) {
-    var_old = var_mods$var_old[i]
-    if (!(var_old %in% colnames(df))) {
-      next
-    }
-    # If found, make sure the conversion is applicable to this or all dfs
-    tbl <- var_mods$tbl[i]
-    if (tbl != "" && tbl != df_name) {
-      next
-    }
-    # Perform the conversion if all checks passed
-    var_new = var_mods$var_new[i]
-    cat("DEBUG\tvar_old: ",var_old,"\t",sep="")
-    cat("var_new: ",var_new,"\t", sep="")
-    cat("tbl: ",tbl,"    ", sep="")
-    cat("Replacing... ", sep = "")
-    df <- df %>% rename(!!var_new := !!var_old)
-    cat("Done.\n", sep = "")
-  }
-}
-
-are_identical_lists <- function(list1, list2) {
-  if (length(list1) != length(list2)) {
-    return(FALSE)
-  }
-  for (i in seq_along(list1)) {
-    if(!identical(list1[[i]], list2[[i]])) {
-      cat("Non-identical lists at list1[",i,"]. Exiting.\n", sep = "")
-      print(list1[[i]])
-      print(list2[[i]])
-      return(FALSE)
-    }
-  }
-  return(TRUE)
-}
-
-# Rename ----
+## Rename Variables ----
 
 cat("DEBUG\tCleaning variable names...\n", sep = "")
 for(df_name in df_names) {
@@ -190,95 +221,28 @@ cat("DEBUG\tCleaning variable names complete.\n", sep = "")
 cat("DEBUG\tRenaming variables...\n", sep = "")
 for(df_name in df_names) {
   cat("DEBUG\tRenaming ",df_name,"...\n", sep = "")
-  # df <- rename_df_variables(df_name)
   assign(df_name, rename_df_variables(df_name))
   cat("DEBUG\tRenaming ",df_name," complete.\n", sep = "")
 }
 cat("DEBUG\tRenaming variables complete.\n", sep = "")
 
-# Recast Testing: Generate list of target values ----
-
-# Testing Process:
-  # Get complete list of target variable types
-  # Execute re-cast
-  # Get complete list of current variable types
-  # Compare target to current
-
-
-get_df_var_types <- function(df_name) {
-  cat("DEBUG\tGetting current variable types for ", df_name, "...", sep = "")
-  df <- get(df_name)
-  var_types <- data.frame(
-    var = names(df),
-    type = sapply(df, function(col) class(col)[1])
-  )
-  cat("Done.\n", sep = "")
-  return(var_types)
-}
-
-get_df_target_var_types <- function(df_name) {
-  cat("DEBUG\tGetting target variable types for ", df_name, "...", sep = "")
-  var_types <- get_df_var_types(df_name)
-  # Iterate over rows in current var_types
-  for (var_row in 1:nrow(var_types)) {
-    # Check if var name is in var_mods_recast
-    var_name <- var_types$var[var_row]
-    for(mods_row in 1:nrow(var_mods_recast)) {
-      var_name_mods <- var_mods_recast$var_new[mods_row]
-      # If no, skip: if yes, replace type with target
-      if(var_name == var_name_mods) {
-        type_new <- var_mods_recast$type_new[mods_row]
-        cat("DEBUG\tUpdating ", var_name, " from ", var_types$type[var_row], " to ", var_mods_recast$type_new[mods_row], "...\n", sep = "")
-        var_types$type[var_row] <- type_new
-      }
-    }
-  }
-  cat("Done.\n", sep = "")
-  return(var_types)
-}
-
-# Generate list of all current variable types for all tables, not just the ones that need to change
-
-cat("DEBUG\tGenerating list of original column types for testing...\n", sep = "")
-df_types_original <-lapply(df_names, get_df_var_types)
-names(df_types_original) <- df_names
-cat("DEBUG\tGenerating list of original column types complete.\n", sep = "")
+## Recast Variables ----
 
 cat("DEBUG\tGenerating list of target column types for testing...\n", sep = "")
 df_types_target <-lapply(df_names, get_df_target_var_types)
 names(df_types_target) <- df_names
 cat("DEBUG\tGenerating list of target column types complete.\n", sep = "")
 
-# Recast ----
-
 cat("DEBUG\tRecasting variables...\n", sep = "")
 for (df_name in df_names) {
   cat("DEBUG\tRecasting ",df_name,"...\n", sep = "")
-  df <- get(df_name)
-  for (i in 1:nrow(var_mods_recast)) {
-    var_new <- var_mods_recast$var_new[i]
-    type_new <- var_mods_recast$type_new[i]
-    if (var_new %in% colnames(df)) {
-      cat("DEBUG\tConverting ",df_name,"$",var_new," to ",type_new, "... ", sep = "")
-      if (type_new == "character") {
-        df <- df %>% mutate("{var_new}" := as.character(!!sym(var_new)))
-      } else if (type_new == "Date") {
-        df <- df %>% mutate("{var_new}" := mdy(!!sym(var_new)))
-      } else if (type_new == "POSIXct") {
-        df <- df %>% mutate("{var_new}" := mdy_hms(!!sym(var_new)))
-      } else {
-        cat("type_new not found: not converting.", sep = "")
-      }
-      cat("Done.\n", sep = "")
-    }
-  }
-  assign(df_name, df)
+  assign(df_name, recast_variables(df_name))
   cat("DEBUG\tConverting ",df_name," complete.\n", sep = "")
 }
 cat("DEBUG\tRecasting variables complete.\n", sep = "")
 
+# Test Recasting of Variables ----
 
-# Recast Testing: Compare list of actual values to target ----
 cat("DEBUG\tGenerating list of updated column types...\n", sep = "")
 df_types_after <- lapply(df_names, get_df_var_types)
 names(df_types_after) <- df_names
