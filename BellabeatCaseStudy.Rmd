@@ -474,9 +474,111 @@ for (name in df_names) {
 }
 ```
 
-## TODO: Clean and update variable names
+## Clean and update variable names
 
-## TODO: Update variable types
+```{r update_variable_names}
+
+# Function Declarations ----
+
+rename_df_variables <- function(df_name) {
+  cat("DEBUG\tRenaming ",df_name,"...\n", sep = "")
+  df <- get(df_name)
+  # Check each var name requiring correction against the var names in the df
+  for (i in 1:nrow(var_mods_rename)) {
+    var_old = var_mods$var_old[i]
+    if (!(var_old %in% colnames(df))) {
+      next
+    }
+    # If found, make sure the conversion is applicable to this or all dfs
+    tbl <- var_mods$tbl[i]
+    if (tbl != "" && tbl != df_name) {
+      next
+    }
+    # Perform the conversion if all checks passed
+    var_new = var_mods$var_new[i]
+    cat("DEBUG\tdf: ",df_name, "\tvar_old: ",var_old,"\t",sep="")
+    cat("var_new: ",var_new,"\t", sep="")
+    cat("tbl: ",tbl,"    ", sep="")
+    cat("Replacing... ", sep = "")
+    df <- df %>% rename(!!var_new := !!var_old)
+    cat("Done.\n", sep = "")
+  }
+  cat("DEBUG\tRenaming ",df_name," complete.\n", sep = "")
+  return(df)
+}
+
+# Global Variable Declarations ----
+
+var_mods <- data.frame(
+  var_old = character(0),
+  var_new  = character(0),
+  type_new = character(0),
+  tbl = character(0)
+)
+
+# WARNING: Ensure table-specific modifications (tbl != "") are positioned above non-specific modifications with matching var_old/var_new values: only the first modification in the list will be applied to matching variables.
+# TODO: Eliminate this issue by modifying code to warn/handle conflicting rows
+
+var_mods <- var_mods %>%
+  rbind(.,data.frame(var_old="date",                       var_new="bodycomp_datetime",          type_new="POSIXct", tbl="bodycomp_src_logs_wide")) %>%
+  rbind(.,data.frame(var_old="time",                       var_new="heart_rate_second",          type_new="POSIXct", tbl="heartrate_src_seconds_tall")) %>%
+  rbind(.,data.frame(var_old="value",                      var_new="heart_rate",                 type_new="",        tbl="heartrate_src_seconds_tall")) %>%
+  rbind(.,data.frame(var_old="date",                       var_new="sleep_minute",               type_new="POSIXct", tbl="sleep_src_mins_tall")) %>%
+  rbind(.,data.frame(var_old="value",                      var_new="sleep_rank",                 type_new="",        tbl="sleep_src_mins_tall")) %>%
+  rbind(.,data.frame(var_old="",                           var_new="activity_hour",              type_new="POSIXct", tbl="")) %>%
+  rbind(.,data.frame(var_old="",                           var_new="activity_minute",            type_new="POSIXct", tbl="")) %>%
+  rbind(.,data.frame(var_old="",                           var_new="sleep_day",                  type_new="POSIXct", tbl="")) %>%
+  rbind(.,data.frame(var_old="",                           var_new="id",                         type_new="character",     tbl="")) %>%
+  rbind(.,data.frame(var_old="",                           var_new="log_id",                     type_new="character",     tbl="")) %>%
+  rbind(.,data.frame(var_old="activity_date",              var_new="activity_day",               type_new="Date",     tbl="")) %>%
+  rbind(.,data.frame(var_old="fairly_active_distance",     var_new="distance_fairly_active",     type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="fairly_active_minutes",      var_new="minutes_fairly_active",      type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="light_active_distance",      var_new="distance_lightly_active",    type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="light_active_minutes",       var_new="minutes_lightly_active",     type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="lightly_active_distance",    var_new="distance_lightly_active",    type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="lightly_active_minutes",     var_new="minutes_lightly_active",     type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="logged_activities_distance", var_new="distance_logged_activities", type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="me_ts",                      var_new="mets",                       type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="sedentary_active_distance",  var_new="distance_sedentary",         type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="sedentary_distance",         var_new="distance_sedentary",         type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="sedentary_active_minutes",   var_new="minutes_sedentary",          type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="sedentary_minutes",          var_new="minutes_sedentary",          type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="step_total",                 var_new="steps_total",                type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="total_distance",             var_new="distance_total",             type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="total_intensity",            var_new="intensity_total",            type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="total_minutes_asleep",       var_new="sleep_minutes_asleep_total", type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="total_sleep_records",        var_new="sleep_records_total",        type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="total_time_in_bed",          var_new="sleep_minutes_bed_total",    type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="tracker_distance",           var_new="distance_tracker",           type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="very_active_distance",       var_new="distance_very_active",       type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="very_active_minutes",        var_new="minutes_very_active",        type_new="",        tbl=""))
+
+# TODO: relocate or eliminate these variables
+var_mods_rename <- var_mods %>%
+  filter(var_old != "" & var_new != "")
+var_mods_recast <- var_mods %>%
+  filter(type_new != "")
+
+
+## Rename Variables ----
+
+cat("DEBUG\tCleaning variable names...\n", sep = "")
+for(df_name in df_names) {
+  cat("DEBUG\tCleaning ",df_name,"...\n", sep = "")
+  assign(df_name, get(df_name) %>% clean_names())
+}
+cat("DEBUG\tCleaning variable names complete.\n", sep = "")
+
+cat("DEBUG\tRenaming variables...\n", sep = "")
+for(df_name in df_names) {
+  cat("DEBUG\tRenaming ",df_name,"...\n", sep = "")
+  assign(df_name, rename_df_variables(df_name))
+  cat("DEBUG\tRenaming ",df_name," complete.\n", sep = "")
+}
+cat("DEBUG\tRenaming variables complete.\n", sep = "")
+```
+
+## Update variable types
 
 | Variable        | Original Type | Updated Type | Reason                                                           |
 |:----------------|:--------------|:-------------|:-----------------------------------------------------------------|
@@ -490,9 +592,9 @@ for (name in df_names) {
 | sleep_rank      | num           | factor 1:3   | Disable numerical operations (value is a ranking, not an amount) |
 | intensity       | num           | factor 1:4   | Disable numerical operations (value is a ranking, not an amount) |
 
-```{r updated_cleaning_process}
+```{r update_variable_types}
 
-## Function Declarations ----
+# Function Declarations ----
 
 are_identical_lists <- function(list1, list2) {
   if (length(list1) != length(list2)) {
@@ -563,103 +665,7 @@ recast_variables <- function(df_name) {
   return(df)
 }
 
-rename_df_variables <- function(df_name) {
-  cat("DEBUG\tRenaming ",df_name,"...\n", sep = "")
-  df <- get(df_name)
-  # Check each var name requiring correction against the var names in the df
-  for (i in 1:nrow(var_mods_rename)) {
-    var_old = var_mods$var_old[i]
-    if (!(var_old %in% colnames(df))) {
-      next
-    }
-    # If found, make sure the conversion is applicable to this or all dfs
-    tbl <- var_mods$tbl[i]
-    if (tbl != "" && tbl != df_name) {
-      next
-    }
-    # Perform the conversion if all checks passed
-    var_new = var_mods$var_new[i]
-    cat("DEBUG\tdf: ",df_name, "\tvar_old: ",var_old,"\t",sep="")
-    cat("var_new: ",var_new,"\t", sep="")
-    cat("tbl: ",tbl,"    ", sep="")
-    cat("Replacing... ", sep = "")
-    df <- df %>% rename(!!var_new := !!var_old)
-    cat("Done.\n", sep = "")
-  }
-  cat("DEBUG\tRenaming ",df_name," complete.\n", sep = "")
-  return(df)
-}
-
-## Global Variable Declarations ----
-
-var_mods <- data.frame(
-  var_old = character(0),
-  var_new  = character(0),
-  type_new = character(0),
-  tbl = character(0)
-)
-
-# WARNING: Ensure table-specific modifications (tbl != "") are positioned above non-specific modifications with matching var_old/var_new values: only the first modification in the list will be applied to matching variables.
-# TODO: Eliminate this issue by modifying code to warn/handle conflicting rows
-
-var_mods <- var_mods %>%
-  rbind(.,data.frame(var_old="date",                       var_new="bodycomp_datetime",          type_new="POSIXct", tbl="bodycomp_src_logs_wide")) %>%
-  rbind(.,data.frame(var_old="time",                       var_new="heart_rate_second",          type_new="POSIXct", tbl="heartrate_src_seconds_tall")) %>%
-  rbind(.,data.frame(var_old="value",                      var_new="heart_rate",                 type_new="",        tbl="heartrate_src_seconds_tall")) %>%
-  rbind(.,data.frame(var_old="date",                       var_new="sleep_minute",               type_new="POSIXct", tbl="sleep_src_mins_tall")) %>%
-  rbind(.,data.frame(var_old="value",                      var_new="sleep_rank",                 type_new="",        tbl="sleep_src_mins_tall")) %>%
-  rbind(.,data.frame(var_old="",                           var_new="activity_hour",              type_new="POSIXct", tbl="")) %>%
-  rbind(.,data.frame(var_old="",                           var_new="activity_minute",            type_new="POSIXct", tbl="")) %>%
-  rbind(.,data.frame(var_old="",                           var_new="sleep_day",                  type_new="POSIXct", tbl="")) %>%
-  rbind(.,data.frame(var_old="",                           var_new="id",                         type_new="character",     tbl="")) %>%
-  rbind(.,data.frame(var_old="",                           var_new="log_id",                     type_new="character",     tbl="")) %>%
-  rbind(.,data.frame(var_old="activity_date",              var_new="activity_day",               type_new="Date",     tbl="")) %>%
-  rbind(.,data.frame(var_old="fairly_active_distance",     var_new="distance_fairly_active",     type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="fairly_active_minutes",      var_new="minutes_fairly_active",      type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="light_active_distance",      var_new="distance_lightly_active",    type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="light_active_minutes",       var_new="minutes_lightly_active",     type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="lightly_active_distance",    var_new="distance_lightly_active",    type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="lightly_active_minutes",     var_new="minutes_lightly_active",     type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="logged_activities_distance", var_new="distance_logged_activities", type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="me_ts",                      var_new="mets",                       type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="sedentary_active_distance",  var_new="distance_sedentary",         type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="sedentary_distance",         var_new="distance_sedentary",         type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="sedentary_active_minutes",   var_new="minutes_sedentary",          type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="sedentary_minutes",          var_new="minutes_sedentary",          type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="step_total",                 var_new="steps_total",                type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="total_distance",             var_new="distance_total",             type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="total_intensity",            var_new="intensity_total",            type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="total_minutes_asleep",       var_new="sleep_minutes_asleep_total", type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="total_sleep_records",        var_new="sleep_records_total",        type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="total_time_in_bed",          var_new="sleep_minutes_bed_total",    type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="tracker_distance",           var_new="distance_tracker",           type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="very_active_distance",       var_new="distance_very_active",       type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="very_active_minutes",        var_new="minutes_very_active",        type_new="",        tbl=""))
-
-# TODO: relocate or eliminate these variables
-var_mods_rename <- var_mods %>%
-  filter(var_old != "" & var_new != "")
-var_mods_recast <- var_mods %>%
-  filter(type_new != "")
-
-## Rename Variables ----
-
-cat("DEBUG\tCleaning variable names...\n", sep = "")
-for(df_name in df_names) {
-  cat("DEBUG\tCleaning ",df_name,"...\n", sep = "")
-  assign(df_name, get(df_name) %>% clean_names())
-}
-cat("DEBUG\tCleaning variable names complete.\n", sep = "")
-
-cat("DEBUG\tRenaming variables...\n", sep = "")
-for(df_name in df_names) {
-  cat("DEBUG\tRenaming ",df_name,"...\n", sep = "")
-  assign(df_name, rename_df_variables(df_name))
-  cat("DEBUG\tRenaming ",df_name," complete.\n", sep = "")
-}
-cat("DEBUG\tRenaming variables complete.\n", sep = "")
-
-## Recast Variables ----
+# Recast Variables ----
 
 cat("DEBUG\tGenerating list of target column types for testing...\n", sep = "")
 df_types_target <-lapply(df_names, get_df_target_var_types)
@@ -687,28 +693,9 @@ cat("DEBUG\tChecking updated column types against target types complete.\n", sep
 cat("Data recasting ", case_when(test_succeeded ~ "succeeded", TRUE ~"failed"), ".", sep = "")
 ```
 
-Given this operation involved 
+Given the large number of variables in the data set, the recasting procedure includes test code to confirm the updated variable types match the types specified in the variable mods list. The test code works by first generating a list of the desired final variable/type pairs, then, once the conversion is completed, generating a second list of the actual variable/type pairs in the data frames to compare it to. This has the advantage of not just confirming the desired conversions took place, but also checks for any unintended changes to variables that did not require conversion.
 
-I probably could have just baked success/failure logic into the code itself, but I saw this as an opportunity to practice more explicit code testing where I establish what specifically I want the end result to be, then compare the final results against that.
-
-I generated a simple test function that would generate a list of the variable types in a given set of data frames, and ran it on my data frames before the type conversion operation.
-
-I then took these "Before" values and ran another script to update the actual variable types with the new values defined in the variable modifications data frame: this generated the list of "Target" values.
-
-Finally, I ran the function over the data frames a second time after the conversion had been completed: this generated the list of "After" values.
-
-The "After" list was compared against the "Target" list, with any differences generating a FALSE output: if all values were identical, the output was TRUE, and the conversion was considered successful.
-
-
-The same function was run on the unmodified data frames to generate a list of the "before" variable types: this data 
-
-```{r update_variable_types}
-
-
-
-```
-
-
+Building the test code added a decent amount of work to the project, but now I have it working, it can be reused and scaled to future projects.
 
 ``` {r update_variable_types_small}
 
