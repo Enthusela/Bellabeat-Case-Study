@@ -74,8 +74,10 @@ rqd_pkgs <- c(
   "tidyverse",
   "janitor",
   "readr",
+  "skimr",
   "ggplot2",
-  "kableExtra"
+  "kableExtra",
+  "purrr"
 )
 
 lapply(rqd_pkgs, function(pkg) {
@@ -288,10 +290,10 @@ All three FitBit manuals also make the same claim that the default zones are "ba
 
 At this point, I'm satisfied that the below are the only four intensity levels I need to consider when analysing the data set, regardless of what models of FitBits were being used:
 
-1. Sedentary Minutes
-2. Lightly Active Minutes
-3. Fairly Active Minutes
-4. Very Active Minutes
+0. Sedentary Minutes
+1. Lightly Active Minutes
+2. Fairly Active Minutes
+3. Very Active Minutes
 
 #### Validating "Sleep Quality" by use of R _and_ reading of manuals
 
@@ -413,25 +415,7 @@ The "bodycomp_logs_src_wide.csv" file contains both kilogram and pound variables
 intensity_sum_hours_wide.csv contains Total Intensity and Average Intensity. Total intensity values exceed 4, the maximum for intensity, and so are not actually useful. Average Intensity is just the Total Intensity for each hour divided by 60 minutes per hour.
 
 # Step 3: Clean
-## TODO: Cleaning Checklist
-
-* Sources of errors: Did you use the right tools and functions to find the source of the errors in your dataset?
-* Null data: Did you search for NULLs using conditional formatting and filters
-* Misspelled words: Did you locate all misspellings?
-* Mistyped numbers: Did you double-check that your numeric data has been entered correctly?
-* Extra spaces and characters: Did you remove any extra spaces or characters using the TRIM function?
-* Duplicates: Did you remove duplicates in spreadsheets using the Remove Duplicates function or DISTINCT in SQL?
-* Mismatched data types: Did you check that numeric, date, and string data are typecast correctly?
-* Messy (inconsistent) strings: Did you make sure that all of your strings are consistent and meaningful?
-* Messy (inconsistent) date formats: Did you format the dates consistently throughout your dataset?
-* Misleading variable labels (columns): Did you name your columns meaningfully?
-* Truncated data: Did you check for truncated or missing data that needs correction?
-* Business Logic: Did you check that the data makes sense given your knowledge of the business? 
-
-* Update file names
-* Clean variable names
-* Update variable names
-* Update variable types
+## Cleaning Checklist
 
 ## Update file names
 
@@ -474,17 +458,39 @@ for (name in df_names) {
 }
 ```
 
+## Null data: Did you search for NULLs using conditional formatting and filters
+
+```{r clean_nulls}
+# Check for NULLs
+cat("Checking for NULL/empty values...\n", sep="")
+for (df_name in df_names) {
+  df <- get(df_name)
+  num_nulls <- sum(is.na(df))
+  if(num_nulls) {
+    cat(df_name,": ",num_nulls," NULLs","\n",sep="")
+  }
+  # Check for empty strings (which do not show up as NULLs)
+  empty_strings <- df %>%
+    filter(if_any(where(is.character), ~ nchar(.) == 0))
+  num_empty_strings = nrow(empty_strings)
+  if(num_empty_strings) {
+    cat(df_name,": ",num_empty_strings," empty strings","\n",sep="")
+  }
+}
+cat("Checking for NULL/empty values done.\n", sep="")
+rm(df,num_nulls,empty_strings,num_empty_strings,df_name)
+```
 ## Clean and update variable names
 
 ```{r update_variable_names}
 
 # Function Declarations ----
 
-rename_df_variables <- function(df_name) {
-  cat("DEBUG\tRenaming ",df_name,"...\n", sep = "")
+rename_df_variables <- function(df_name, var_mods) {
+  cat("DEBUG\tRenaming variables in \"",df_name,"\"...\n", sep = "")
   df <- get(df_name)
   # Check each var name requiring correction against the var names in the df
-  for (i in 1:nrow(var_mods_rename)) {
+  for (i in 1:nrow(var_mods)) {
     var_old = var_mods$var_old[i]
     if (!(var_old %in% colnames(df))) {
       next
@@ -503,7 +509,7 @@ rename_df_variables <- function(df_name) {
     df <- df %>% rename(!!var_new := !!var_old)
     cat("Done.\n", sep = "")
   }
-  cat("DEBUG\tRenaming ",df_name," complete.\n", sep = "")
+  cat("DEBUG\tRenaming variables in \"",df_name,"\" complete.\n", sep = "")
   return(df)
 }
 
@@ -539,6 +545,7 @@ var_mods <- var_mods %>%
   rbind(.,data.frame(var_old="lightly_active_minutes",     var_new="minutes_lightly_active",     type_new="",        tbl="")) %>%
   rbind(.,data.frame(var_old="logged_activities_distance", var_new="distance_logged_activities", type_new="",        tbl="")) %>%
   rbind(.,data.frame(var_old="me_ts",                      var_new="mets",                       type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="moderately_active_distance", var_new="distance_moderately_active", type_new="",        tbl="")) %>%
   rbind(.,data.frame(var_old="sedentary_active_distance",  var_new="distance_sedentary",         type_new="",        tbl="")) %>%
   rbind(.,data.frame(var_old="sedentary_distance",         var_new="distance_sedentary",         type_new="",        tbl="")) %>%
   rbind(.,data.frame(var_old="sedentary_active_minutes",   var_new="minutes_sedentary",          type_new="",        tbl="")) %>%
@@ -546,19 +553,13 @@ var_mods <- var_mods %>%
   rbind(.,data.frame(var_old="step_total",                 var_new="steps_total",                type_new="",        tbl="")) %>%
   rbind(.,data.frame(var_old="total_distance",             var_new="distance_total",             type_new="",        tbl="")) %>%
   rbind(.,data.frame(var_old="total_intensity",            var_new="intensity_total",            type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="total_minutes_asleep",       var_new="sleep_minutes_asleep_total", type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="total_minutes_asleep",       var_new="minutes_asleep_total",       type_new="",        tbl="")) %>%
   rbind(.,data.frame(var_old="total_sleep_records",        var_new="sleep_records_total",        type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="total_time_in_bed",          var_new="sleep_minutes_bed_total",    type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="total_steps",                var_new="steps_total",                type_new="",        tbl="")) %>%
+  rbind(.,data.frame(var_old="total_time_in_bed",          var_new="minutes_in_bed_total",       type_new="",        tbl="")) %>%
   rbind(.,data.frame(var_old="tracker_distance",           var_new="distance_tracker",           type_new="",        tbl="")) %>%
   rbind(.,data.frame(var_old="very_active_distance",       var_new="distance_very_active",       type_new="",        tbl="")) %>%
   rbind(.,data.frame(var_old="very_active_minutes",        var_new="minutes_very_active",        type_new="",        tbl=""))
-
-# TODO: relocate or eliminate these variables
-var_mods_rename <- var_mods %>%
-  filter(var_old != "" & var_new != "")
-var_mods_recast <- var_mods %>%
-  filter(type_new != "")
-
 
 ## Rename Variables ----
 
@@ -570,15 +571,15 @@ for(df_name in df_names) {
 cat("DEBUG\tCleaning variable names complete.\n", sep = "")
 
 cat("DEBUG\tRenaming variables...\n", sep = "")
+var_mods_rename <- var_mods %>%
+  filter(var_old != "" & var_new != "")
 for(df_name in df_names) {
-  cat("DEBUG\tRenaming ",df_name,"...\n", sep = "")
-  assign(df_name, rename_df_variables(df_name))
-  cat("DEBUG\tRenaming ",df_name," complete.\n", sep = "")
+  assign(df_name, rename_df_variables(df_name, var_mods_rename))
 }
 cat("DEBUG\tRenaming variables complete.\n", sep = "")
 ```
 
-## Update variable types
+## Mismatched data types: Did you check that numeric, date, and string data are typecast correctly?
 
 | Variable        | Original Type | Updated Type | Reason                                                           |
 |:----------------|:--------------|:-------------|:-----------------------------------------------------------------|
@@ -590,9 +591,14 @@ cat("DEBUG\tRenaming variables complete.\n", sep = "")
 | log_id          | num           | chr          | Disable numerical operations (IDs are considered a UID string)   |
 | time            | chr           | datetime     | Cannot perform datetime operations on chr variables              |
 | sleep_rank      | num           | factor 1:3   | Disable numerical operations (value is a ranking, not an amount) |
-| intensity       | num           | factor 1:4   | Disable numerical operations (value is a ranking, not an amount) |
+| intensity       | num           | factor 0:3   | Disable numerical operations (value is a ranking, not an amount) |
 
-```{r update_variable_types}
+```{r update_variable_types_nonfactors}
+
+# Global Variable Declarations ----
+
+var_mods_recast <- var_mods %>%
+  filter(type_new != "")
 
 # Function Declarations ----
 
@@ -612,7 +618,7 @@ are_identical_lists <- function(list1, list2) {
 }
 
 get_df_var_types <- function(df_name) {
-  cat("DEBUG\tGetting current variable types for ", df_name, "...", sep = "")
+  cat("DEBUG\tGetting current variable types for ", df_name, "... ", sep = "")
   df <- get(df_name)
   var_types <- data.frame(
     var = names(df),
@@ -623,7 +629,7 @@ get_df_var_types <- function(df_name) {
 }
 
 get_df_target_var_types <- function(df_name) {
-  cat("DEBUG\tGetting target variable types for ", df_name, "...", sep = "")
+  cat("DEBUG\tGetting target variable types for ", df_name, "...\n", sep = "")
   var_types <- get_df_var_types(df_name)
   # Iterate over rows in current var_types
   for (var_row in 1:nrow(var_types)) {
@@ -634,12 +640,12 @@ get_df_target_var_types <- function(df_name) {
       # If no, skip: if yes, replace type with target
       if(var_name == var_name_mods) {
         type_new <- var_mods_recast$type_new[mods_row]
-        cat("DEBUG\tUpdating ", var_name, " from ", var_types$type[var_row], " to ", var_mods_recast$type_new[mods_row], "...\n", sep = "")
+        cat("DEBUG\tUpdated \"", var_name, "\" from ", var_types$type[var_row], " to ", var_mods_recast$type_new[mods_row], ".\n", sep = "")
         var_types$type[var_row] <- type_new
       }
     }
   }
-  cat("Done.\n", sep = "")
+  cat("DEBUG\tGetting target variable types for ", df_name, " done.\n", sep = "")
   return(var_types)
 }
 
@@ -693,11 +699,7 @@ cat("DEBUG\tChecking updated column types against target types complete.\n", sep
 cat("Data recasting ", case_when(test_succeeded ~ "succeeded", TRUE ~"failed"), ".", sep = "")
 ```
 
-Given the large number of variables in the data set, the recasting procedure includes test code to confirm the updated variable types match the types specified in the variable mods list. The test code works by first generating a list of the desired final variable/type pairs, then, once the conversion is completed, generating a second list of the actual variable/type pairs in the data frames to compare it to. This has the advantage of not just confirming the desired conversions took place, but also checks for any unintended changes to variables that did not require conversion.
-
-Building the test code added a decent amount of work to the project, but now I have it working, it can be reused and scaled to future projects.
-
-``` {r update_variable_types_small}
+``` {r update_variable_types_factors}
 
 # Individual recast of variables with only one occurrence
 str(sleep_src_mins_tall)
@@ -707,21 +709,319 @@ str(sleep_src_mins_tall)
 
 str(intensity_src_mins_tall)
 intensity_src_mins_tall <- intensity_src_mins_tall %>%
-    mutate(intensity = factor(intensity, levels = 1:4, labels = c("Sedentary", "Lightly Active", "Fairly Active", "Very Active")))
+    mutate(intensity = factor(intensity, levels = 0:3, labels = c("Sedentary", "Lightly Active", "Fairly Active", "Very Active")))
 str(intensity_src_mins_tall)
 
 ```
 
-``` {r, data_conversion, eval=FALSE}
-str(sleep_src_mins_tall)
-sleep_src_mins_tall_retyped <- sleep_src_mins_tall %>%
-  mutate(date := mdy_hms(date))
-View(sleep_src_mins_tall_retyped)
+Given the large number of variables in the data set, the recasting procedure includes test code to confirm the updated variable types match the types specified in the variable mods list. The test code works by first generating a list of the desired final variable/type pairs, then, once the conversion is completed, generating a second list of the actual variable/type pairs in the data frames to compare it to. This has the advantage of not just confirming the desired conversions took place, but also checks for any unintended changes to variables that did not require conversion.
+
+Building the test code added a decent amount of work to the project, but now I have it working, it can be reused and scaled to future projects.
+
+## Messy (inconsistent) date formats: Did you format the dates consistently throughout your dataset?
+
+This step was completed as part of the previous step when date values were typecast.
+
+## Misspelled words: Did you locate all misspellings?
+
+### Checking the variable names
+
+There's no magic here in terms of variable names: I just finished updating/cleaning up the variable names myself, so this step is just a quick re-print and manual spell-check of all of the variable names in the data set.
+
+```{r clean_misspellings}
+for(df_name in df_names) {
+  print(df_name)
+  glimpse(get(df_name))
+}
 ```
+
+### Checking string-type variables
+
+The only non-numeric string-type data in the data set are the factor variables I defined myself: these were spell-checked and found to be correct.
+
+## TODO: Mistyped numbers: Did you double-check that your numeric data has been entered correctly?
+### ID lengths are correct
+
+Valid person ID values are ten-digit numbers, whereas valid Log ID values are eleven-digit based on the "sleep_src_mins_tall" data frame. I wrote a short function to validate the length of all rows in a data frame for a given column number and valid length.
+
+```{r validate_ID_lengths}
+validate_string_length <- function(df_name, col_name, valid_length) {
+  cat("Checking ",df_name," for invalid ",col_name," values... ",sep="")
+  df <- get(df_name)
+  if (col_name %in% colnames(df)) {
+    invalid_values <- df %>% select(!!sym(col_name)) %>% filter(nchar(!!sym(col_name)) != valid_length)
+  }
+  if (exists('invalid_values') && nrow(invalid_values) > 0) {
+    cat(nrow(invalid_values)," invalid values found:\n",sep="")
+    glimpse(invalid_values)
+    rm(invalid_values)
+  } else {
+    cat("complete.\n",sep="")
+  }
+  rm(df)
+}
+
+result <- map(df_names, ~validate_string_length(.x, col_name = "id", valid_length = 10))
+result <- map(df_names, ~validate_string_length(.x, col_name = "log_id", valid_length = 11))
+rm(result)
+```
+
+This check produced 67 invalid values in the "bodycomp_src_logs_wide" data frame. Manual inspection revealed that the log_ID values in this table are all thirteen-digit, not eleven-digit: this is not an error, so the data will not be modified.
+
+### Dates are all within range
+
+The data set is described as containing data from users collected between "03.12.2016-05.12.2016": all records in the data set were validated against this date range.
+
+```{r validate_all_dates}
+
+validate_dates <- function(df_name) {
+  valid_dates_stt <- as.Date("2016-03-12", format = "%Y-%m-%d")
+  valid_dates_end <- as.Date("2016-05-14", format = "%Y-%m-%d")
+  
+  cat("Validating dates for ",df_name,"... ",sep="")
+  
+  date_columns <- get(df_name) %>%
+    select_if(function(col) is.POSIXct(col) || is.Date(col))
+  
+  if (ncol(date_columns) == 0) {
+    cat("Error: no date column found.\n",sep="")
+  } else if (ncol(date_columns) > 1) {
+    cat("Error: more than one date column found for ",df_name,".\n",sep="")
+  } else {
+    outside_range <- date_columns %>%
+      filter(if_any(everything(), ~ . < valid_dates_stt | . > valid_dates_end))
+    if (nrow(outside_range) > 0) {
+      cat("found ",nrow(outside_range)," invalid values:\n",sep="")
+      print(outside_range)
+      rm(outside_range)
+    } else {
+      cat("complete.\n")
+    }
+  }
+  rm(date_columns)
+}
+
+result <- lapply(df_names, validate_dates)
+rm(result)
+```
+
+This check found dates just outside the range, dating up to 8am on 05.13.2016, the day after the data set supposedly ended. I didn't consider this to be a problem, so the valid end-date was updated to the 14th of May 2016 accordingly, and all dates passed this check.
+
+### TODO: Values are within appropriate ranges for their units (e.g. non-negative)
+  - All numeric values are non-negative
+  - Percentage values are less than 100
+  - Weight values are positive and make sense (e.g. less than 200kg)
+  - BMI values are in range
+  - Daily, hourly, and minute duration sums are no more than one day, hour, or minute, respectively
+  - Distances make sense
+  - Step counts make sense (check for >20000 for a start)
+  - Calories are within normal range
+  - Heart rates are less than 200
+  - 
+  
+```{r validate_all_numeric}
+validate_numerics <- function(df_name) {
+  # This function performs all checks on numeric values that are required in more than one data-frame, e.g. non-negativity and summation
+  cat("Validating numerics for ",df_name,"... ",sep="")
+  numerics <- get(df_name) %>% select_if(is.numeric)
+  if (ncol(numerics) == 0) {
+    cat("No numeric variables found.\n",sep="")
+  } else {
+    # Check for negative values
+    negative_values <- numerics %>%
+      filter(if_any(everything(), ~ . < 0))
+    if (nrow(negative_values) > 0) {
+      cat("found ",nrow(negative_values)," invalid values:\n",sep="")
+      print(negative_values)
+    } else {
+      cat("complete.\n")
+    }
+    rm(negative_values)
+    # Check for summation
+  }
+  rm(numerics)
+}
+
+result <- lapply(df_names, validate_numerics)
+rm(result)
+```
+
+Note: The maximum values quoted below are used as thresholds above which values may not be realistic, not as hard limits for acceptability. A heart-rate of 200bpm, for example, is entirely possible, but it is high enough that I would want to check if the data point corresponded to a period of high-intensity exercise.
+
+```{r validate_specific_numeric}
+# Generic function definition
+# For a given list of dfs, column names, and a min-max range, check all matching columns in all matching dfs against that range
+validate_within_range <- function(df_name, column_names, range_min, range_max) {
+  df <- get(df_name)
+  for (col_name in column_names) {
+    cat("Checking ranges for ",df_name,"[",col_name,"]... ",sep="")
+    if (!(col_name %in% colnames(df))) {
+      cat("column not found.\n")
+    } else {
+      out_of_range <- df %>%
+        filter(!!sym(col_name) < range_min | !!sym(col_name) > range_max)
+      if (nrow(out_of_range) <= 0) {
+        cat("complete.\n",sep="")
+      } else {
+        cat("Found ",nrow(out_of_range)," invalid values:\n",sep="")
+        glimpse(out_of_range)
+      }
+      rm(out_of_range)
+    }
+  }
+rm(df)
+}
+
+# Minute summation
+valid_df_names <- c(
+  "activity_sum_days_wide",
+  "intensity_sum_days_wide",
+  "sleep_sum_days_wide")
+valid_col_names <- c(
+  "minutes_very_active",
+  "minutes_fairly_active",
+  "minutes_lightly_active",
+  "minutes_sedentary",
+  "minutes_asleep_total",
+  "minutes_in_bed_total")
+range_max <- 60 * 12 # Minutes in half a day
+result <- map(valid_df_names, ~validate_within_range(.x, valid_col_names, 0, range_max))
+
+# Percentages
+valid_df_names <- c("bodycomp_src_logs_wide")
+valid_col_names <- c("fat")
+range_max <- 30 # Arbitrarily chosen as high enough to be a potentially erroneous value
+result <- map(valid_df_names, ~validate_within_range(.x, valid_col_names, 0, range_max))
+
+# Weights (kg)
+valid_df_names <- c("bodycomp_src_logs_wide")
+valid_col_names <- c("weight_kg")
+range_max <- 150 # Arbitrarily chosen as high enough to be a potentially erroneous value
+result <- map(valid_df_names, ~validate_within_range(.x, valid_col_names, 0, range_max))
+
+# Weights (pounds, same limit as for weight in kilos)
+valid_df_names <- c("bodycomp_src_logs_wide")
+valid_col_names <- c("weight_pounds")
+kg2lb <- 2.204623
+range_max <- 150 * kg2lb # Arbitrarily chosen as high enough to be a potentially erroneous value
+result <- map(valid_df_names, ~validate_within_range(.x, valid_col_names, 0, range_max))
+
+# BMI 
+valid_df_names <- c("bodycomp_src_logs_wide")
+valid_col_names <- c("bmi")
+range_max <- 40.0 # Corresponds with the WHO "Obese (Class III)" weight category
+result <- map(valid_df_names, ~validate_within_range(.x, valid_col_names, 0, range_max))
+
+# Distances
+valid_df_names <- c(
+  "activity_sum_days_wide",
+  "intensity_sum_days_wide")
+valid_col_names <- c(
+  "distance_lightly_active",
+  "distance_logged_activities",
+  "distance_moderately_active",
+  "distance_sedentary",
+  "distance_total",
+  "distance_tracker",
+  "distance_very_active")
+range_max <- 21.08241 # Equivalent to one half-marathon
+result <- map(valid_df_names, ~validate_within_range(.x, valid_col_names, 0, range_max))
+
+# Step counts
+valid_df_names <- c(
+  "activity_sum_days_wide",
+  "steps_sum_days_tall",
+  "steps_sum_hours_tall",
+  "steps_src_mins_tall")
+valid_col_names <- c(
+  "steps",
+  "steps_total")
+range_max <- 20000 # Chosen arbitrarily as double the typically-recommended daily step count
+result <- map(valid_df_names, ~validate_within_range(.x, valid_col_names, 0, range_max))
+
+# Calories
+valid_df_names <- c(
+  "activity_sum_days_wide",
+  "calories_src_mins_tall",
+  "calories_sum_days_tall",
+  "calories_sum_hours_tall")
+valid_col_names <- c("calories")
+range_max  <- 4000 # Chosen arbitrarily as double the typically-recommended daily caloric intake
+result <- map(valid_df_names, ~validate_within_range(.x, valid_col_names, 0, range_max))
+
+# TODO: METs
+
+# Heart Rates
+valid_df_names <- c("heartrate_src_seconds_tall")
+valid_col_names <- c("heart_rate")
+range_max  <- 200 # Chosen based on average 100% heart-rate for a 20 y.o. (Source: American Heart Foundation)
+result <- map(valid_df_names, ~validate_within_range(.x, valid_col_names, 0, range_max))
+
+rm(result, valid_df_names, valid_col_names)
+```
+
+  - All numeric values are non-negative
+  - Percentage values are less than 100
+  - Weight values are positive and make sense (e.g. less than 200kg)
+  - BMI values are in range
+  - Daily, hourly, and minute duration sums are no more than one day, hour, or minute, respectively
+  - Distances make sense
+  - Step counts make sense (check for >20000 for a start)
+  - Calories are within normal range
+  - Heart rates are less than 200
+  - 
+
+Findings:
+  
+  * There were no invalid negative values
+  * There were no invalid percentage values
+  * There were no invalid minute summations
+  * There were 19 step count data points above 20,000: these were manually checked and found to be associated with long distances covered and high levels of exercise, which made sense, so I considered that data valid.
+  * There were a total of four unique data points with a distance covered of more than one half-marathon: all of these also indicatd a very high level of exercise for at lest 90 minutes, which made sense, so I considered the data valid
+  * Calories: 21 records showed caloric burns of over 4000 calories. All but one of those were associated with very high levels of activity: the outlier showed only 30 minutes total as "Very Active" or "Lightly Active", compared to 120+ minutes for all other records. It does show 15km distance covered that day, which is nearly a third of a marathon, so for now it makes enough sense to keep it in, and I will analyse it further after the cleaning stage.
+  * Heart-rate: 13 records were found with a heart-rate between 200 and 203, all of which corresponded to a single user over a 30-minute period of "Very Active" intensity.
+  
+
+Sources for ranges:
+  * Fat %: TODO
+  * Weight (kg/lb): TODO
+  * BMI: https://en.wikipedia.org/wiki/Body_mass_index#Categories
+  * Half-marathon: https://en.wikipedia.org/wiki/Half_marathon
+  * Step-count: TODO
+  * Caloric intake: TODO
+  * Max HR: https://www.heart.org/en/healthy-living/fitness/fitness-basics/target-heart-rates
+
+## TODO: Extra spaces and characters: Did you remove any extra spaces or characters using the TRIM function?
+## TODO: Duplicates: Did you remove duplicates in spreadsheets using the Remove Duplicates function or DISTINCT in SQL?
+## TODO: Messy (inconsistent) strings: Did you make sure that all of your strings are consistent and meaningful?
+
+## TODO: Misleading variable labels (columns): Did you name your columns meaningfully?
+## TODO: Truncated data: Did you check for truncated or missing data that needs correction?
+## TODO: Business Logic: Did you check that the data makes sense given your knowledge of the business? 
+
+* Update file names
+* Clean variable names
+* Update variable names
+* Update variable types
+
 
 ## TODO: Transform into tidy data frames
 
+Update: There may not be any real point to this step, as it does not actually aid the data analysis. I'll leave it for now unless a need arises
+
 Of all the source data tables, only the body comp data is presented in wide format. The source wide data includes columns for Mass, Fat Percentage, and BMI. These will be split out into individual tall-format data tables for individual analysis
+
+## Null data: Did you search for NULLs using conditional formatting and filters
+* Misspelled words: Did you locate all misspellings?
+* Mistyped numbers: Did you double-check that your numeric data has been entered correctly?
+* Extra spaces and characters: Did you remove any extra spaces or characters using the TRIM function?
+* Duplicates: Did you remove duplicates in spreadsheets using the Remove Duplicates function/DISTINCT in SQL?
+* Mismatched data types: Did you check that numeric, date, and string data are typecast correctly?
+* Messy (inconsistent) strings: Did you make sure that all of your strings are consistent and meaningful?
+* Messy (inconsistent) date formats: Did you format the dates consistently throughout your dataset?
+* Misleading variable labels (columns): Did you name your columns meaningfully?
+* Truncated data: Did you check for truncated or missing data that needs correction?
+* Business Logic: Did you check that the data makes sense given your knowledge of the business? 
 
 ## TODO: Remove duplicate data
 
@@ -893,6 +1193,8 @@ ggplot(data = sleep_src_mins_tall_oneId) +
     )
   )
 ```
+
+## TODO: Analysing step counts vs distance to see who's running
 
 
 # TODO Step 5: Share
