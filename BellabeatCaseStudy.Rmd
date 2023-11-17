@@ -199,7 +199,7 @@ With this in mind, I'm going to invest a bit of time to confirm the meaning of t
 
 I'll start by determining the range of values present in the Intensity data:
 
-``` {r find_intensity_min_max}
+``` {r find_intensity_min_max, eval=FALSE}
 cat("Min Intensity:", min(intensity_src_mins_tall$Intensity),
     "\nMax Intensity:", max(intensity_src_mins_tall$Intensity), "\n", sep = "")
 ```
@@ -213,7 +213,7 @@ The "activity_sum_days_wide" table provides some context clues as to what the le
 
 Let's see if I can confirm this by recreating the data with that naming convention:
 
-```{r compare_intensity_data}
+```{r compare_intensity_data, eval=FALSE}
 # Generate my version of sleepDay_merged for comparison with the original
 intensity_daily_sum_wide <- intensity_src_mins_tall %>%
     mutate(activity_date_floored = floor_date(mdy_hms(ActivityMinute), unit = "days")) %>%
@@ -258,6 +258,7 @@ intensity_daily_comp <- activity_sum_days_wide %>%
 
 # For this table, glimpse() shows enough to demonstrate the validity of the method
 glimpse(intensity_daily_comp)
+rm(intensity_daily_sum_wide, intensity_daily_comp)
 ```
 
 The approach above appears to work perfectly, with the exception of the "sedentary minutes" calculation, which is consistently higher in my version.
@@ -325,7 +326,7 @@ I can confirm this mapping by attempting to recreare duplicate the summary data 
 
 As with the intensity data, I can confirm this by recreating the data with that naming convention:
 
-```{r compare_sleepDay_data}
+```{r compare_sleepDay_data, eval=FALSE}
 # Generate my version of sleepDay_merged for comparison with the original
 sleep_src_mins_tall_NW <- sleep_src_mins_tall %>%
     # mutate(date_typed = mdy_hms(date)) %>%
@@ -380,6 +381,7 @@ sleepDay_comp <- sleep_sum_days_wide %>%
 
 # For this table, glimpse() shows enough to demonstrate the validity of the method
 glimpse(sleepDay_comp)
+rm(sleep_src_mins_tall_NW, sleepDay_comp)
 ```
 
 I was able to recreate the existing sleep_src_mins_tall table almost perfectly by summing sleep times per Log ID, with the latest date associated with each Log ID being used as the "date" for that sleep. In practice it turns out I had the mapping inverted, and actually the following is used:
@@ -415,7 +417,10 @@ The "bodycomp_logs_src_wide.csv" file contains both kilogram and pound variables
 intensity_sum_hours_wide.csv contains Total Intensity and Average Intensity. Total intensity values exceed 4, the maximum for intensity, and so are not actually useful. Average Intensity is just the Total Intensity for each hour divided by 60 minutes per hour.
 
 # Step 3: Clean
-## Cleaning Checklist
+## TODO: Data Cleaning Checklist
+
+* Check the final results against the checklist from the google cert
+* Convert list into changelog format
 
 ## Update file names
 
@@ -480,6 +485,10 @@ for (df_name in df_names) {
 cat("Checking for NULL/empty values done.\n", sep="")
 rm(df,num_nulls,empty_strings,num_empty_strings,df_name)
 ```
+## Misleading variable labels (columns): Did you name your columns meaningfully?
+
+Yes: All variable names were investigated manually and modified as required: see details in below section.
+
 ## Clean and update variable names
 
 ```{r update_variable_names}
@@ -487,7 +496,7 @@ rm(df,num_nulls,empty_strings,num_empty_strings,df_name)
 # Function Declarations ----
 
 rename_df_variables <- function(df_name, var_mods) {
-  cat("DEBUG\tRenaming variables in \"",df_name,"\"...\n", sep = "")
+  cat("Renaming variables in \"",df_name,"\"...\n", sep = "")
   df <- get(df_name)
   # Check each var name requiring correction against the var names in the df
   for (i in 1:nrow(var_mods)) {
@@ -502,14 +511,14 @@ rename_df_variables <- function(df_name, var_mods) {
     }
     # Perform the conversion if all checks passed
     var_new = var_mods$var_new[i]
-    cat("DEBUG\tdf: ",df_name, "\tvar_old: ",var_old,"\t",sep="")
+    cat("df: ",df_name, "\tvar_old: ",var_old,"\t",sep="")
     cat("var_new: ",var_new,"\t", sep="")
     cat("tbl: ",tbl,"    ", sep="")
     cat("Replacing... ", sep = "")
     df <- df %>% rename(!!var_new := !!var_old)
     cat("Done.\n", sep = "")
   }
-  cat("DEBUG\tRenaming variables in \"",df_name,"\" complete.\n", sep = "")
+  cat("Renaming variables in \"",df_name,"\" complete.\n", sep = "")
   return(df)
 }
 
@@ -563,20 +572,20 @@ var_mods <- var_mods %>%
 
 ## Rename Variables ----
 
-cat("DEBUG\tCleaning variable names...\n", sep = "")
+cat("Cleaning variable names...\n", sep = "")
 for(df_name in df_names) {
-  cat("DEBUG\tCleaning ",df_name,"...\n", sep = "")
+  cat("Cleaning ",df_name,"...\n", sep = "")
   assign(df_name, get(df_name) %>% clean_names())
 }
-cat("DEBUG\tCleaning variable names complete.\n", sep = "")
+cat("Cleaning variable names complete.\n", sep = "")
 
-cat("DEBUG\tRenaming variables...\n", sep = "")
+cat("Renaming variables...\n", sep = "")
 var_mods_rename <- var_mods %>%
   filter(var_old != "" & var_new != "")
 for(df_name in df_names) {
   assign(df_name, rename_df_variables(df_name, var_mods_rename))
 }
-cat("DEBUG\tRenaming variables complete.\n", sep = "")
+cat("Renaming variables complete.\n", sep = "")
 ```
 
 ## Mismatched data types: Did you check that numeric, date, and string data are typecast correctly?
@@ -618,7 +627,7 @@ are_identical_lists <- function(list1, list2) {
 }
 
 get_df_var_types <- function(df_name) {
-  cat("DEBUG\tGetting current variable types for ", df_name, "... ", sep = "")
+  cat("Getting current variable types for ", df_name, "... ", sep = "")
   df <- get(df_name)
   var_types <- data.frame(
     var = names(df),
@@ -629,7 +638,7 @@ get_df_var_types <- function(df_name) {
 }
 
 get_df_target_var_types <- function(df_name) {
-  cat("DEBUG\tGetting target variable types for ", df_name, "...\n", sep = "")
+  cat("Getting target variable types for ", df_name, "...\n", sep = "")
   var_types <- get_df_var_types(df_name)
   # Iterate over rows in current var_types
   for (var_row in 1:nrow(var_types)) {
@@ -640,12 +649,12 @@ get_df_target_var_types <- function(df_name) {
       # If no, skip: if yes, replace type with target
       if(var_name == var_name_mods) {
         type_new <- var_mods_recast$type_new[mods_row]
-        cat("DEBUG\tUpdated \"", var_name, "\" from ", var_types$type[var_row], " to ", var_mods_recast$type_new[mods_row], ".\n", sep = "")
+        cat("Updated \"", var_name, "\" from ", var_types$type[var_row], " to ", var_mods_recast$type_new[mods_row], ".\n", sep = "")
         var_types$type[var_row] <- type_new
       }
     }
   }
-  cat("DEBUG\tGetting target variable types for ", df_name, " done.\n", sep = "")
+  cat("Getting target variable types for ", df_name, " done.\n", sep = "")
   return(var_types)
 }
 
@@ -655,7 +664,7 @@ recast_variables <- function(df_name) {
     var_new <- var_mods_recast$var_new[i]
     type_new <- var_mods_recast$type_new[i]
     if (var_new %in% colnames(df)) {
-      cat("DEBUG\tConverting ",df_name,"$",var_new," to ",type_new, "... ", sep = "")
+      cat("Converting ",df_name,"$",var_new," to ",type_new, "... ", sep = "")
       if (type_new == "character") {
         df <- df %>% mutate("{var_new}" := as.character(!!sym(var_new)))
       } else if (type_new == "Date") {
@@ -673,30 +682,31 @@ recast_variables <- function(df_name) {
 
 # Recast Variables ----
 
-cat("DEBUG\tGenerating list of target column types for testing...\n", sep = "")
+cat("Generating list of target column types for testing...\n", sep = "")
 df_types_target <-lapply(df_names, get_df_target_var_types)
 names(df_types_target) <- df_names
-cat("DEBUG\tGenerating list of target column types complete.\n", sep = "")
+cat("Generating list of target column types complete.\n", sep = "")
 
-cat("DEBUG\tRecasting variables...\n", sep = "")
+cat("Recasting variables...\n", sep = "")
 for (df_name in df_names) {
-  cat("DEBUG\tRecasting ",df_name,"...\n", sep = "")
+  cat("Recasting ",df_name,"...\n", sep = "")
   assign(df_name, recast_variables(df_name))
-  cat("DEBUG\tConverting ",df_name," complete.\n", sep = "")
+  cat("Converting ",df_name," complete.\n", sep = "")
 }
-cat("DEBUG\tRecasting variables complete.\n", sep = "")
+cat("Recasting variables complete.\n", sep = "")
 
 # Test Recasting of Variables ----
 
-cat("DEBUG\tGenerating list of updated column types...\n", sep = "")
+cat("Generating list of updated column types...\n", sep = "")
 df_types_after <- lapply(df_names, get_df_var_types)
 names(df_types_after) <- df_names
-cat("DEBUG\tGenerating list of updated column types complete.\n", sep = "")
+cat("Generating list of updated column types complete.\n", sep = "")
 
-cat("DEBUG\tChecking updated column types against target types...\n", sep = "")
+cat("Checking updated column types against target types...\n", sep = "")
 test_succeeded <- are_identical_lists(df_types_after, df_types_target)
-cat("DEBUG\tChecking updated column types against target types complete.\n", sep = "")
+cat("Checking updated column types against target types complete.\n", sep = "")
 cat("Data recasting ", case_when(test_succeeded ~ "succeeded", TRUE ~"failed"), ".", sep = "")
+rm(df_types_target, df_types_after)
 ```
 
 ``` {r update_variable_types_factors}
@@ -723,12 +733,11 @@ Building the test code added a decent amount of work to the project, but now I h
 This step was completed as part of the previous step when date values were typecast.
 
 ## Misspelled words: Did you locate all misspellings?
-
 ### Checking the variable names
 
 There's no magic here in terms of variable names: I just finished updating/cleaning up the variable names myself, so this step is just a quick re-print and manual spell-check of all of the variable names in the data set.
 
-```{r clean_misspellings}
+```{r clean_misspellings, eval=FALSE}
 for(df_name in df_names) {
   print(df_name)
   glimpse(get(df_name))
@@ -739,7 +748,10 @@ for(df_name in df_names) {
 
 The only non-numeric string-type data in the data set are the factor variables I defined myself: these were spell-checked and found to be correct.
 
-## TODO: Mistyped numbers: Did you double-check that your numeric data has been entered correctly?
+## Mistyped numbers: Did you double-check that your numeric data has been entered correctly?
+
+Given that the data was not entered manually by the user, there's no way for me to manually check the correctness of all of the numeric values included in the data set. The values will instead be checked against pre-determined limits to verify that they fall within realistic ranges given the types of data presented.
+
 ### ID lengths are correct
 
 Valid person ID values are ten-digit numbers, whereas valid Log ID values are eleven-digit based on the "sleep_src_mins_tall" data frame. I wrote a short function to validate the length of all rows in a data frame for a given column number and valid length.
@@ -807,7 +819,8 @@ rm(result)
 
 This check found dates just outside the range, dating up to 8am on 05.13.2016, the day after the data set supposedly ended. I didn't consider this to be a problem, so the valid end-date was updated to the 14th of May 2016 accordingly, and all dates passed this check.
 
-### TODO: Values are within appropriate ranges for their units (e.g. non-negative)
+### Non-date values are within appropriate ranges for their units\
+Checklist:
   - All numeric values are non-negative
   - Percentage values are less than 100
   - Weight values are positive and make sense (e.g. less than 200kg)
@@ -817,7 +830,6 @@ This check found dates just outside the range, dating up to 8am on 05.13.2016, t
   - Step counts make sense (check for >20000 for a start)
   - Calories are within normal range
   - Heart rates are less than 200
-  - 
   
 ```{r validate_all_numeric}
 validate_numerics <- function(df_name) {
@@ -936,7 +948,7 @@ valid_df_names <- c(
 valid_col_names <- c(
   "steps",
   "steps_total")
-range_max <- 20000 # Chosen arbitrarily as double the typically-recommended daily step count
+range_max <- 14800 # Set to double the average daily step count for Australian adults
 result <- map(valid_df_names, ~validate_within_range(.x, valid_col_names, 0, range_max))
 
 # Calories
@@ -960,17 +972,6 @@ result <- map(valid_df_names, ~validate_within_range(.x, valid_col_names, 0, ran
 rm(result, valid_df_names, valid_col_names)
 ```
 
-  - All numeric values are non-negative
-  - Percentage values are less than 100
-  - Weight values are positive and make sense (e.g. less than 200kg)
-  - BMI values are in range
-  - Daily, hourly, and minute duration sums are no more than one day, hour, or minute, respectively
-  - Distances make sense
-  - Step counts make sense (check for >20000 for a start)
-  - Calories are within normal range
-  - Heart rates are less than 200
-  - 
-
 Findings:
   
   * There were no invalid negative values
@@ -981,47 +982,93 @@ Findings:
   * Calories: 21 records showed caloric burns of over 4000 calories. All but one of those were associated with very high levels of activity: the outlier showed only 30 minutes total as "Very Active" or "Lightly Active", compared to 120+ minutes for all other records. It does show 15km distance covered that day, which is nearly a third of a marathon, so for now it makes enough sense to keep it in, and I will analyse it further after the cleaning stage.
   * Heart-rate: 13 records were found with a heart-rate between 200 and 203, all of which corresponded to a single user over a 30-minute period of "Very Active" intensity.
   
-
+### Sources used to determine realistic limits for numerical values
 Sources for ranges:
-  * Fat %: TODO
-  * Weight (kg/lb): TODO
-  * BMI: https://en.wikipedia.org/wiki/Body_mass_index#Categories
+  * Fat %: American Journal of Clinical Nutrition via Forbes: https://pubmed.ncbi.nlm.nih.gov/10966886/
+  * BMI: Based on WHO statistical categories for classifying BMI values: https://en.wikipedia.org/wiki/Body_mass_index#Categories
   * Half-marathon: https://en.wikipedia.org/wiki/Half_marathon
-  * Step-count: TODO
-  * Caloric intake: TODO
+  * Step-count: https://www.abs.gov.au/statistics/health/health-conditions-and-risks/australian-health-survey-physical-activity/latest-release#pedometer-steps
+  * Caloric intake: Chosen arbitrarily as double my own daily required intake, based on a calculator accessed at: https://www.eatforhealth.gov.au/nutrition-calculators/daily-energy-requirements-calculator 
   * Max HR: https://www.heart.org/en/healthy-living/fitness/fitness-basics/target-heart-rates
 
-## TODO: Extra spaces and characters: Did you remove any extra spaces or characters using the TRIM function?
-## TODO: Duplicates: Did you remove duplicates in spreadsheets using the Remove Duplicates function or DISTINCT in SQL?
-## TODO: Messy (inconsistent) strings: Did you make sure that all of your strings are consistent and meaningful?
+## Extra spaces and characters: Did you remove any extra spaces or characters?
 
-## TODO: Misleading variable labels (columns): Did you name your columns meaningfully?
+* Manual check for variable names with non-whitespace trailing characters
+* Automated trim of variable names
+* Automated trim of character-type data entries
+
+```{r trim_whitespace_variables}
+cat("Trimming whitespace in variable names...\n", sep="")
+for (df_name in df_names) {
+  df <- get(df_name)
+  for (col_name in colnames(df)) {
+    col_name_trimmed <- str_trim(col_name)
+    cat("Trimming ",df_name, "[",col_name,"] to ",col_name_trimmed,"... ",sep="")
+    df <- df %>% rename(!!col_name := !!col_name_trimmed)
+    cat("Done.\n", sep = "")
+  }
+}
+rm(df, col_name_trimmed)
+cat("Trimming whitespace in variable names complete.\n", sep="")
+```
+
+```{r trim_whitespace_data}
+trim_chr_column <- function(col) {
+  if (is.character(col)) {
+    return(str_trim(col))
+  } else {
+    return(col)
+  }
+}
+
+cat("Trimming whitespace in character-type data values...\n", sep="")
+for (df_name in df_names) {
+  df <- get(df_name)
+  for (col_name in colnames(df)) {
+    if (is.character(df[[col_name]])) {
+      cat("Trimming ",df_name, "[",col_name,"]... ",sep="")
+      # df <- df %>% mutate(if_any(where(is.character), trim_chr_column))
+      df <- df %>% mutate(across(all_of(col_name), str_trim))
+      cat("Done.\n", sep = "")
+    }
+  }
+}
+rm(df)
+cat("Trimming whitespace in character-type data values complete.\n", sep="")
+```
+
+## Duplicates: Did you check for and remove duplicates in the data?
+
+All dataframes were checked for duplicate rows using the anyDuplicated() function, and duplicate rows were removed using the distinct() function. The function was tested using a prototype version that generated dataframes of all of the apparent duplicate rows: these were verified manually before the function was allowed to modify the actual dataframes. The logic was verified again by re-running it after the initial removal: all dataframes reported zero duplicates on the second run, confirming the success of the first pass.
+
+```{r remove_duplicates}
+cat("Checking for duplicate values...\n",sep="")
+for (df_name in df_names) {
+  cat("Checking ",df_name," for duplicates... ",sep="")
+  df <- get(df_name)
+  if (!anyDuplicated(df)) {
+    cat("0 duplicates removed. Done.\n",sep="")
+  } else {
+    nrow_before <- nrow(df)
+    df <- distinct(df)
+    nrow_after <- nrow(df)
+    cat("Removing ",(nrow_before - nrow_after)," duplicates... ",sep="")
+    assign(df_name, df)
+    cat("Done.\n",sep="")
+  }
+}
+rm(df)
+cat("Checking for duplicate values complete.\n",sep="")
+```
+
+## TODO: Messy (inconsistent) strings: Did you make sure that all of your strings are consistent and meaningful?
 ## TODO: Truncated data: Did you check for truncated or missing data that needs correction?
 ## TODO: Business Logic: Did you check that the data makes sense given your knowledge of the business? 
-
-* Update file names
-* Clean variable names
-* Update variable names
-* Update variable types
-
-
 ## TODO: Transform into tidy data frames
 
 Update: There may not be any real point to this step, as it does not actually aid the data analysis. I'll leave it for now unless a need arises
 
 Of all the source data tables, only the body comp data is presented in wide format. The source wide data includes columns for Mass, Fat Percentage, and BMI. These will be split out into individual tall-format data tables for individual analysis
-
-## Null data: Did you search for NULLs using conditional formatting and filters
-* Misspelled words: Did you locate all misspellings?
-* Mistyped numbers: Did you double-check that your numeric data has been entered correctly?
-* Extra spaces and characters: Did you remove any extra spaces or characters using the TRIM function?
-* Duplicates: Did you remove duplicates in spreadsheets using the Remove Duplicates function/DISTINCT in SQL?
-* Mismatched data types: Did you check that numeric, date, and string data are typecast correctly?
-* Messy (inconsistent) strings: Did you make sure that all of your strings are consistent and meaningful?
-* Messy (inconsistent) date formats: Did you format the dates consistently throughout your dataset?
-* Misleading variable labels (columns): Did you name your columns meaningfully?
-* Truncated data: Did you check for truncated or missing data that needs correction?
-* Business Logic: Did you check that the data makes sense given your knowledge of the business? 
 
 ## TODO: Remove duplicate data
 
