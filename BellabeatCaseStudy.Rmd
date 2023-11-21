@@ -75,6 +75,7 @@ rqd_pkgs <- c(
   "janitor",
   "readr",
   "skimr",
+  "tibble",
   "ggplot2",
   "ggpubr",
   "kableExtra",
@@ -123,6 +124,7 @@ df_names <- paths_dfs %>%
 for (i in 1:length(df_names)) {
   assign(df_names[i], read_csv(paths_dfs[i]))
 }
+rm(i, paths_dfs)
 ```
 
 ## Understanding the data
@@ -487,7 +489,7 @@ for (df_name in df_names) {
   }
 }
 cat("Checking for NULL/empty values done.\n", sep="")
-rm(df,num_nulls,empty_strings,num_empty_strings,df_name)
+rm(df, df_name, num_nulls, empty_strings, num_empty_strings, df_name)
 ```
 
 
@@ -522,6 +524,7 @@ rename_df_variables <- function(df_name, var_mods) {
     df <- df %>% rename(!!var_new := !!var_old)
     cat("Done.\n", sep = "")
   }
+  rm(i)
   cat("Renaming variables in \"",df_name,"\" complete.\n", sep = "")
   return(df)
 }
@@ -590,6 +593,7 @@ var_mods_rename <- var_mods %>%
 for(df_name in df_names) {
   assign(df_name, rename_df_variables(df_name, var_mods_rename))
 }
+rm(df_name)
 cat("Renaming variables complete.\n", sep = "")
 ```
 
@@ -613,7 +617,7 @@ for (df_name in df_names) {
     cat("Done.\n",sep="")
   }
 }
-rm(df)
+rm(df, df_name, nrow_before, nrow_after)
 cat("Checking for duplicate values complete.\n",sep="")
 ```
 
@@ -650,9 +654,11 @@ are_identical_lists <- function(list1, list2) {
       cat("Non-identical lists at list1[",i,"]. Exiting.\n", sep = "")
       print(list1[[i]])
       print(list2[[i]])
+      rm(i)
       return(FALSE)
     }
   }
+  rm(i)
   return(TRUE)
 }
 
@@ -707,6 +713,7 @@ recast_variables <- function(df_name) {
       cat("Done.\n", sep = "")
     }
   }
+  rm(i)
   return(df)
 }
 
@@ -736,7 +743,7 @@ cat("Checking updated column types against target types...\n", sep = "")
 test_succeeded <- are_identical_lists(df_types_after, df_types_target)
 cat("Checking updated column types against target types complete.\n", sep = "")
 cat("Data recasting ", case_when(test_succeeded ~ "succeeded", TRUE ~"failed"), ".", sep = "")
-rm(df_types_target, df_types_after)
+rm(df_name, df_types_target, df_types_after, test_succeeded)
 ```
 
 ``` {r update_variable_types_factors}
@@ -769,7 +776,7 @@ for (df_name in df_names) {
     cat("Done.\n", sep = "")
   }
 }
-rm(df, col_name_trimmed)
+rm(df, df_name, col_name, col_name_trimmed)
 cat("Trimming whitespace in variable names complete.\n", sep="")
 ```
 
@@ -794,7 +801,7 @@ for (df_name in df_names) {
     }
   }
 }
-rm(df)
+rm(df, df_name, col_name)
 cat("Trimming whitespace in character-type data values complete.\n", sep="")
 ```
 ## Validate numeric data
@@ -851,7 +858,7 @@ for (df_name in df_names) {
     }
   }
 }
-rm(df, id_col_names)
+rm(df, df_name, col_name, id_col_names)
 cat("Checking min/max ID value ranges complete.\n",sep="")
 ```
 
@@ -963,7 +970,7 @@ validate_within_range <- function(df_name, column_names, range_min, range_max) {
       rm(out_of_range)
     }
   }
-rm(df)
+rm(df, col_name)
 }
 
 # Minute summation
@@ -993,6 +1000,7 @@ valid_col_names <- c("weight_pounds")
 kg2lb <- 2.204623
 range_max <- 150 * kg2lb # Arbitrarily chosen as high enough to be a potentially erroneous value
 result <- map(valid_df_names, ~validate_within_range(.x, valid_col_names, 0, range_max))
+rm(kg2lb)
 
 # BMI 
 valid_df_names <- c("bodycomp_src_logs_wide")
@@ -1049,7 +1057,7 @@ valid_col_names <- c("heart_rate")
 range_max  <- 200 # Chosen based on average 100% heart-rate for a 20 y.o. (Source: American Heart Foundation)
 result <- map(valid_df_names, ~validate_within_range(.x, valid_col_names, 0, range_max))
 
-rm(result, valid_df_names, valid_col_names)
+rm(range_max, result, valid_df_names, valid_col_names)
 ```
 
 Results:
@@ -1074,7 +1082,7 @@ Results:
 
 With this in mind, I attempted to corroborate the METs data by plotting it against other related data, specifically calories-burned and heart-rate. Individual charts were plotted for each user ID.
 
-```{r interpret_MET_data}
+```{r interpret_MET_data, eval=FALSE}
 # Generate minute-level summary heart-rate data for merging with calorie/
 heartrate_sum_minutes_tall <- heartrate_src_seconds_tall %>% 
   mutate(activity_minute = floor_date(heart_rate_second, unit = "minute")) %>%
@@ -1136,125 +1144,199 @@ In which I do my actual analysis
 
 ### Method
 
-This part of the analysis uses the unique IDs to determine what proportion of the sample base uses each feature:
-<ol>
-  <li>For each data frame:
-    <ol>
-      <li>Count number of unique IDs in data frame</li>
-      <li>Add all unique IDs into id vector</li>
-    </ol>
-  </li>
-  <li>For each data frame:
-    <ol>
-      <li>Calculate unique ID number as percentage of total unique IDs</li>
-    </ol>
-  </li>
-  <li>Generate bar-graph showing utilisation rate of each feature:
-    <ol>
-      <li>Shown initially as a proportion for every data frame</li>
-      <li>Summarized into proportions for one indicative data frame per feature</li>
-    </ol>
-  </li>
-</ol>
+This part of the analysis uses the unique IDs to determine what proportion of the sample base uses each feature. This works two ways: I located which IDs are in the data for each feature, and I located which features are in the data for each ID.
 
+```{r list_of_all_dataframes, eval=FALSE}
+dfs <- mget(df_names)
+for (i in seq_along(data)) {
+  print(names(data)[i])
+  glimpse(data[[i]])
+}
+```
 
-### Implementation
+```{r unique_ids_per_feature}
+feature_usage = data.frame(
+  feature = character(0),
+  df_name = character(0)
+) %>%
+  rbind(.,data.frame(feature="Heart Rate",         df_name="heartrate_src_seconds_tall")) %>%
+  rbind(.,data.frame(feature="Calorie Burn",       df_name="calories_src_mins_tall")) %>%
+  rbind(.,data.frame(feature="Exercise Intensity", df_name="intensity_src_mins_tall")) %>%
+  rbind(.,data.frame(feature="MET Burn",           df_name="mets_src_mins_tall")) %>%
+  rbind(.,data.frame(feature="Step Count",         df_name="steps_src_mins_tall")) %>%
+  rbind(.,data.frame(feature="Sleep Tracking",     df_name="sleep_src_mins_tall")) %>%
+  rbind(.,data.frame(feature="Body Composition",   df_name="bodycomp_src_logs_wide"))
 
-NOOOOOOOOO
-
-I can't just look at which features are used by 33 users, i.e. group by feature then count IDs: I also need to group by ID and count features. This allows us to investigate which users go with which dataset: are the people who don't use MET tracking the same as the people who don't use HR tracking, for instance
-
-
-
-```{r, count_unique_IDs_by_feature}
-#TODO: Collate databases by feature type
-
-# Note variable names use "Id" instead of "ID" by convention for consistency with database column names
-feature_names = c(
-  "heartrate_seconds_merged",
-  "minuteCaloriesNarrow_merged",
-  "minuteIntensitiesNarrow_merged",
-  "minuteMETsNarrow_merged",
-  "minuteStepsNarrow_merged",
-  "sleep_src_mins_tall",
-  "weightLogInfo_merged"
+unique_ids <- data.frame(
+  df_name = character(0),
+  id_count = numeric(0),
+  id_list = I(list())
 )
 
-column_names <- c("name", "Id_count")
-unique_Id_counts <- data.frame(matrix(nrow = 0, ncol = length(column_names)))
-colnames(unique_Id_counts) <- column_names
-
-unique_Ids <- vector("numeric")
-
-# Determine the number of unique Ids present in each dataframe
-for (name in feature_names) {
+for (i in 1:nrow(feature_usage)) {
+  name <- feature_usage$df_name[i]
   df <- get(name)
-  unique_Ids_in_df <- unique(df$Id)
-  unique_Ids <- unique(c(unique_Ids, unique_Ids_in_df))
-  # Extract count of unique IDs for current dataframe
-  new_row <- data.frame(name, length(unique_Ids_in_df))
-  colnames(new_row) <- column_names
-  unique_Id_counts <- rbind(unique_Id_counts, new_row)
+  if (!("id" %in% colnames(df))) {
+    cat("Warning: ",name,"[id] not found.\n",sep="")
+  } else {
+    id_vect <- unique(df$id)
+    id_count = length(id_vect)
+    unique_ids <- unique_ids %>%
+      rbind(.,data.frame(
+        df_name=name,
+        id_count=id_count,
+        id_list=I(list(id_vect))))
+  }
 }
-unique_Id_counts$name <- reorder(unique_Id_counts$name, unique_Id_counts$Id_count, decreasing = TRUE)
+rm(df, i, id_count, id_vect, name)
 
+feature_usage <- merge(feature_usage, unique_ids, by="df_name", all=TRUE)
+feature_usage <- feature_usage %>%
+  arrange(desc(id_count))
+print(feature_usage)
+rm(unique_ids)
 ```
+
+### Total Feature Usage Findings
+
+The first analysis is a simple record of how many users are logging data for each function
 
 ```{r, viz_unique_IDs_by_feature}
-ggplot(unique_Id_counts, aes(name, Id_count)) +
+max_ids <- 33 # From manual inspection of the data
+
+custom_order <- feature_usage$feature
+feature_usage_sorted <- feature_usage
+feature_usage_sorted$feature <- factor(feature_usage_sorted$feature, levels = custom_order)
+
+ggplot(feature_usage_sorted, aes(feature, id_count)) +
   geom_col() +
-  coord_cartesian(ylim=c(0L, length(unique_Ids))) +
+  coord_cartesian(ylim=c(0L, max_ids)) +
   theme(axis.text.x=element_text(angle=45, hjust=1)) +
-  labs(x="Dataframes", y="Unique ID Count", title="Unique ID Counts for Fitabase Dataframes")
+  labs(x="Feature", y="Unique ID Count", title="Unique ID Counts for Fitabase Features")
+rm(custom_order, feature_usage_sorted)
 ```
+
+Findings on feature popularity:
+
+1. Calorie Burn, Exercise Intensity, MET Burn, and Step Count, with 100% of users
+2. Sleep tracking, with 73% of users
+3. Heart Rate tracking, with 42% of users
+4. Body Composition logging, with 24% of users
+
+### Unique ID Feature Usage Findings
+
+In this section, I wanted to plot which IDs were using which features. I decided to go with an X-Y scatter plot with ID on the X-axis and feature name on the Y-axis, to create a table
 
 ```{r, count_features_by_unique_ID}
+# Identify all unique IDs in database
+unique_ids <- vector(mode="character")
+for (df_name in df_names) {
+  df <- get(df_name)
+  if ("id" %in% colnames(df)) {
+    unique_ids <- unique(c(unique_ids, unique(df$id)))
+  }
+}
 
+feature_tibble_long <- tibble() %>%
+  add_column(id := character(0)) %>%
+  add_column(feature := character(0)) %>%
+  add_column(used := logical(0))
 
+for (unique_id in unique_ids) {
+  for (j in 1:nrow(feature_usage)) {
+    feature_name <- feature_usage$feature[j]
+    id_list <- feature_usage$id_list[[j]]
+    feature_used <- FALSE
+    if (unique_id %in% id_list) {
+      cat("Found id \"",unique_id,"\" using ",feature_name,".\n",sep="")
+      feature_used <- TRUE
+    } else {
+      cat("Did not find id \"",unique_id,"\" using ",feature_name,".\n",sep="")
+    }
+    feature_tibble_long <- feature_tibble_long %>%
+      add_row(id=unique_id,feature=feature_name,used=feature_used)
+  }
+}
+
+feature_usage_summary <- feature_tibble_long %>% 
+  group_by(feature) %>%
+  summarize(sum_used = sum(used, na.rm = TRUE)) %>%
+  arrange(desc(sum_used))
+
+id_usage_summary <- feature_tibble_long %>% 
+  group_by(id) %>%
+  summarize(sum_used = sum(used, na.rm = TRUE))
 ```
 
-```{r, viz_features_by_unique_ID}
+``` {r viz_feature_usage}
 
+custom_order <- feature_usage_summary$feature
+feature_usage_sorted <- feature_tibble_long
+feature_usage_sorted$feature <- factor(feature_usage_sorted$feature, levels = custom_order)
+
+
+ggplot(feature_usage_sorted, aes(x = feature, y = id, color = used)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = c("TRUE" = "green", "FALSE" = "red")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Feature Usage by ID",
+       x = "Feature",
+       y = "ID",
+       color = "Feature Used")
 ```
 
-### Findings
-The most used features were:
-* Calorie Tracking
-* Exercise Intensity Tracking
-* Exercise MET Tracking
-* Step Tracking
-
-These features were used by all 33 participants in the database. 
-
-The least used features were:
-* Weight logging
-* Sleep logging
-* Heart-rate monitoring
-
-
-
-
-
+``` {r}
+```
 ### Note on different FitBit devices
 
-The dataset does not indicate what type of FitBit each participant was using: it is possible the less-used features are unavailable on certain devices. This has a few potential implications:
+The dataset does not indicate what type of FitBit each participant was using: it is possible the less-used features are unavailable on certain devices. This means the lack of usage may not be due to a lack of interest: users may be buying less-capable devices due to cost considerations, for example
 
-* Those consumers who don't use all would like to use the features on fully-featured FitBits, but other factors drive them to purchase FitBits with fewer features, e.g. cost
-* 
-
-### MET Tracking and why Bellabeat doesn't require it
-
-All of the most-used features from the database are available on the Bellabeat Ivy except MET tracking. The MET (Metabolic Equivalent of Task) is a unit of measurement for energy expenditure, or exertion, intended to aid direct comparison between different types of exercise. The Ivy does not generate MET data, but does track calories burnt, which can also be used as a measure of exertion. I recommend presenting calorie tracking as a suitable alternative when targeting advertising at those customers who use the MET tracking feature.
-
-Note that the two features are nearly equivalent and may not present any meaningful distinction to customers; I will be conducting 
 
 ## Analysing the most-used features
 
 In order to develop a targeted marketing strategy for the Ivy, 
 
-### Consumer Behaviors w.r.t. Calorie Tracking vs. MET Tracking
+Analyses for each feature:
+* Are people using these devices athletes trying to get an edge, or slackers tracking their sedentary lifestyles?
+* Does anything change over the month people use their device? In other words, can we claim the usage is correlated to improvements?
 
-### Display data for first-glance analysis
+### TODO: Calorie and MET Tracking
+
+#### Why Bellabeat doesn't need MET tracking
+
+All of the most-used features from the database are available on the Bellabeat Ivy except MET tracking. The MET (Metabolic Equivalent of Task) is a unit of measurement for energy expenditure, or exertion, intended to aid direct comparison between different types of exercise. The Ivy does not generate MET data, but does track calories burnt, which can also be used as a measure of exertion. I recommend presenting calorie tracking as a suitable alternative when targeting advertising at those customers who use the MET tracking feature.
+
+Note that the two features are nearly equivalent and may not present any meaningful distinction to customers.
+
+#### TODO: Consumer Behaviors w.r.t. Calorie Tracking vs. MET Tracking
+### TODO: Exercise Intensity
+
+* Average intensity: are people tracking their exercises exercising very hard?
+* Frequency of exercise: do those who track track often?
+* Intensity vs distance: who's outdoors, and who's at the gym?
+
+### TODO: Step Counts
+
+* Step count vs distance and intensity: are people running? Walking?
+* Do people hit their 10,000 steps? (Yes, I know that's an arbitrary figure)
+
+## TODO: Analysing the lesser-used features
+
+### TODO: Body Composition
+
+* What body types are being logged?
+* Does anything change over time?
+
+### TODO: Heart Rate
+
+* 
+
+### TODO: Sleep quality
+
+* Are people who track sleep sleeping well?
+* Does their sleep quality change over time at all?
+
+#### Display data for first-glance analysis
 
 ``` {r, data_display, include=FALSE, eval=FALSE}
 selected_Id <- "1503960366"
@@ -1283,7 +1365,7 @@ ggplot(data = sleep_src_mins_tall_oneId) +
   )
 ```
 
-## TODO: Analysing step counts vs distance to see who's running
+
 
 
 # TODO Step 5: Share
@@ -1293,3 +1375,5 @@ In which I present all of my key findings and their supporting visualisations
 # TODO Step 6: Act
 
 In which I summarise my recommendations
+
+* Push hard on any features not used much as a value-add to the customer
