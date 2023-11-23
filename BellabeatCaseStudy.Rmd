@@ -77,6 +77,7 @@ rqd_pkgs <- c(
   "skimr",
   "tibble",
   "ggplot2",
+  "gridExtra",
   "ggpubr",
   "kableExtra",
   "purrr"
@@ -1277,7 +1278,7 @@ feature_usage_sorted$feature <- factor(feature_usage_sorted$feature, levels = cu
 
 ggplot(feature_usage_sorted, aes(x = feature, y = id, color = used)) +
   geom_point(size = 3) +
-  scale_color_manual(values = c("TRUE" = "green", "FALSE" = "red")) +
+  scale_color_manual(values = c("TRUE" = "blue", "FALSE" = "red")) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(title = "Feature Usage by ID",
        x = "Feature",
@@ -1285,8 +1286,6 @@ ggplot(feature_usage_sorted, aes(x = feature, y = id, color = used)) +
        color = "Feature Used")
 ```
 
-``` {r}
-```
 ### Note on different FitBit devices
 
 The dataset does not indicate what type of FitBit each participant was using: it is possible the less-used features are unavailable on certain devices. This means the lack of usage may not be due to a lack of interest: users may be buying less-capable devices due to cost considerations, for example
@@ -1301,6 +1300,161 @@ Analyses for each feature:
 * Does anything change over the month people use their device? In other words, can we claim the usage is correlated to improvements?
 
 ### TODO: Calorie and MET Tracking
+
+Firstly I have a look at the overall daily calorie burn for our users:
+
+```{r average_daily_calories}
+mean_daily_cals <- calories_sum_days_tall %>%
+  group_by(id) %>%
+  summarize("mean_calories" = mean(calories))
+
+ggplot(mean_daily_cals, aes(x=reorder(id, mean_calories), y=mean_calories)) +
+  geom_col() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+I found a fairly even spread of uses: using 2000 calories as a benchmark value, most IDs are at or above that benchmark. Lets get a more explicit breakdown by building a histogram, binning IDs into 250-calorie groups:
+
+```{r mean_daily_cals_histogram}
+ggplot(mean_daily_cals, aes(x=mean_calories)) +
+  geom_histogram(binwidth=250)
+```
+
+Here we get a clearer view of the distribution: the largest cohort is in the 2000-calorie range, with a small number below that, and a long tail increasing up to 3500 calories per day on average. An implication here is that the majority of users are engaging in exercise, but calories burned alone don't confirm that to my satisfaction.
+
+At this point, I would ideally cross-reference the calorie data with body composition data to see if the higher-calorie IDs are associated with users with a higher BMI or weight, which would imply a higher base energy requirement and therefore less exercise. However, only 8 of the 33 users have logged body composition, versus all 33 users who logged calories, so this would not be comprehensive.
+
+I can use the Exercise Intensity metric to get a better idea of who's burning more calories. To get a baseline view, I'll visualise each ID's breakdown of the four Intensity types:
+
+TODO: Find weekly averages for intensity: this may give a better idea of exercise habits, since people are unlikely to exercise every day
+TODO: Generate normalised versions of the stacked bar graphs
+
+```{r average_intensities_by_id}
+# For each ID, seperate daily averages for the four intensity levels
+intensity_order = c("very_active", "fairly_active", "lightly_active", "sedentary")
+mean_daily_intensities <- intensity_sum_days_wide %>%
+  group_by(id) %>%
+  summarize("sedentary" = mean(minutes_sedentary),
+            "lightly_active" = mean(minutes_lightly_active),
+            "fairly_active" = mean(minutes_fairly_active),
+            "very_active" = mean(minutes_very_active))
+  
+mean_daily_intensities_long <- mean_daily_intensities %>%
+  tidyr::gather(key = "intensity", value = "mean_minutes", -id) %>%
+  mutate(intensity = factor(intensity, levels = rev(intensity_order)))
+
+ggplot(mean_daily_intensities_long, aes(x= id, y= mean_minutes, fill= intensity)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r average_intensities_by_id_weekly}
+# For each ID, seperate daily averages for the four intensity levels
+intensity_order = c("very_active", "fairly_active", "lightly_active")
+mean_weekly_intensities <- intensity_sum_days_wide %>%
+  group_by(id) %>%
+  summarize("lightly_active" = mean(minutes_lightly_active)*7/60,
+            "fairly_active" = mean(minutes_fairly_active)*7/60,
+            "very_active" = mean(minutes_very_active)*7/60)
+  
+mean_weekly_intensities_long <- mean_weekly_intensities %>%
+  tidyr::gather(key = "intensity", value = "mean_hours", -id) %>%
+  mutate(intensity = factor(intensity, levels = rev(intensity_order)))
+
+ggplot(mean_weekly_intensities_long, aes(x= id, y= mean_hours, fill= intensity)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Immediately, a trend is clear:
+* The majority of users' time is spent "Sedentary"
+* The majority of non-Sedentary time is spent "Lightly Active"
+
+Caveats:
+* The averages don't add up to full days, so its possible people aren't tracking all of their exercising.
+
+The original idea here was to see who's burning the calories and how, so now let's plot active time against average calories burned. For this I generated three graphs, plotting calories burned against:
+* Average non-sedentary time (sum of Lightly, Fairly, and Very Active minutes)
+* Average active time (sum of Fairly and Very Active minutes)
+* Average very-active time (sum of Very Active minutes)
+
+TODO: Display gradient of line-of-best-fit as well as R^2 value
+
+```{r calories_vs_activity}
+mean_non_sedentary_time <- intensity_sum_days_wide %>%
+  group_by(id, activity_day) %>%
+  summarize("non_sedentary_time" = sum(minutes_lightly_active,
+                                       minutes_fairly_active,
+                                       minutes_very_active)) %>%
+  group_by(id) %>%
+  summarize("mean_non_sedentary_time" = mean(non_sedentary_time))
+
+cals_vs_activity <- merge(mean_daily_cals, mean_non_sedentary_time, by="id")
+
+plot_cal_vs_non_sedentary <- ggplot(cals_vs_activity) +
+  geom_point(aes(x=mean_non_sedentary_time, y=mean_calories)) +
+  geom_smooth(mapping=aes(x=mean_non_sedentary_time,y=mean_calories),
+              method = "lm",
+              se = FALSE,
+              color = "blue") +
+  stat_cor(aes(x=mean_non_sedentary_time, y=mean_calories, label=..rr.label..),
+           label.x=0,
+           label.y=0)
+```
+
+```{r cals_vs_more_active}
+mean_fairly_active_time <- intensity_sum_days_wide %>%
+  group_by(id, activity_day) %>%
+  summarize("active_time" = sum(minutes_fairly_active,
+                                minutes_very_active)) %>%
+  group_by(id) %>%
+  summarize("mean_fairly_active_time" = mean(active_time))
+
+cals_vs_activity <- merge(mean_daily_cals, mean_fairly_active_time, by="id")
+
+plot_cal_vs_active <- ggplot(cals_vs_activity) +
+  geom_point(aes(x=mean_fairly_active_time, y=mean_calories)) +
+  geom_smooth(mapping=aes(x=mean_fairly_active_time,y=mean_calories),
+              method = "lm",
+              se = FALSE,
+              color = "blue") +
+  stat_cor(aes(x=mean_fairly_active_time, y=mean_calories, label=..rr.label..),
+           label.x=0,
+           label.y=0)
+```
+
+```{r cals_vs_very_active}
+mean_very_active_time <- intensity_sum_days_wide %>%
+  group_by(id) %>%
+  summarize("mean_active_time" = mean(minutes_very_active))
+
+cals_vs_very_active <- merge(mean_daily_cals, mean_very_active_time, by="id")
+
+plot_cal_vs_very_active <- ggplot(cals_vs_very_active, aes(x=mean_active_time, y=mean_calories)) +
+  geom_point() +
+  geom_smooth(mapping=aes(x=mean_active_time,y=mean_calories), method = "lm", se = FALSE, color = "blue") +
+  stat_cor(aes(x=mean_active_time, y=mean_calories, label=..rr.label..), label.x=0, label.y=0)
+```
+
+All three plots are shown together for comparison.
+
+```{r plot_cals_vs_intensity}
+plot_cal_vs_non_sedentary <- plot_cal_vs_non_sedentary + scale_x_continuous(limits=c(0,350))
+plot_cal_vs_active <- plot_cal_vs_active + scale_x_continuous(limits=c(0,350))
+plot_cal_vs_very_active <- plot_cal_vs_very_active + scale_x_continuous(limits=c(0,350))
+
+grid.arrange(plot_cal_vs_non_sedentary, plot_cal_vs_active, plot_cal_vs_very_active, ncol = 3)
+```
+
+
+Calories burned is shown to correlate only loosely with non-sedentary time, withR^2 = 0.041, but more tightly with active and very-active time, with R^2 = 0.32 and R^2 = 0.4, respectively.
+
+Visual inspection of the charts confirms a fairly-obvious theory: more time spent doing higher-intensity activities correlates with a rapid increase in calories burned. 
+
+UNSCIENTIFIC: There's also a decent spread of calories-burned even at the lower ranges of active time, which is what you'd expect from a diverse group of mostly-sedentary people.
+
+TODO: Histogram the weekly activity hours
+Overall finding: most people aren't doing more than 0-5 hours moderate/heavy exercise per week. No more than 4 people are doing more than 10 hours per week.
 
 #### Why Bellabeat doesn't need MET tracking
 
