@@ -1299,7 +1299,7 @@ Analyses for each feature:
 * Are people using these devices athletes trying to get an edge, or slackers tracking their sedentary lifestyles?
 * Does anything change over the month people use their device? In other words, can we claim the usage is correlated to improvements?
 
-### TODO: Calorie and MET Tracking
+### TO OMIT: Calorie and MET Tracking
 
 Firstly I have a look at the overall daily calorie burn for our users:
 
@@ -1322,48 +1322,45 @@ ggplot(mean_daily_cals, aes(x=mean_calories)) +
 
 Here we get a clearer view of the distribution: the largest cohort is in the 2000-calorie range, with a small number below that, and a long tail increasing up to 3500 calories per day on average. An implication here is that the majority of users are engaging in exercise, but calories burned alone don't confirm that to my satisfaction.
 
-At this point, I would ideally cross-reference the calorie data with body composition data to see if the higher-calorie IDs are associated with users with a higher BMI or weight, which would imply a higher base energy requirement and therefore less exercise. However, only 8 of the 33 users have logged body composition, versus all 33 users who logged calories, so this would not be comprehensive.
+At this point, I would ideally cross-reference the calorie data with body composition data to see if the higher-calorie IDs are associated with users with a higher BMI or weight, which would imply a higher base energy requirement. However, only 8 of the 33 users have logged body composition, versus all 33 users who logged calories, so this would not be comprehensive.
 
-I can use the Exercise Intensity metric to get a better idea of who's burning more calories. To get a baseline view, I'll visualise each ID's breakdown of the four Intensity types:
+I can use the Exercise Intensity metric to get a better idea of who's burning more calories. To get a baseline view, I'll visualise the average time spent in each of the four Intensity zones for each user:
 
-TODO: Find weekly averages for intensity: this may give a better idea of exercise habits, since people are unlikely to exercise every day
-TODO: Generate normalised versions of the stacked bar graphs
+```{r viz_average_daily_intensities_by_id}
+# For each ID, generate averages for the three non-sedentary intensity levels
 
-```{r average_intensities_by_id}
-# For each ID, seperate daily averages for the four intensity levels
-intensity_order = c("very_active", "fairly_active", "lightly_active", "sedentary")
-mean_daily_intensities <- intensity_sum_days_wide %>%
+mean_daily_intensities_wide <- intensity_sum_days_wide %>%
   group_by(id) %>%
   summarize("sedentary" = mean(minutes_sedentary),
             "lightly_active" = mean(minutes_lightly_active),
             "fairly_active" = mean(minutes_fairly_active),
             "very_active" = mean(minutes_very_active))
-  
-mean_daily_intensities_long <- mean_daily_intensities %>%
+
+#Convert data to long-format for plotting as a histogram
+intensity_order = c("sedentary", "lightly_active", "fairly_active", "very_active")
+mean_daily_intensities <- mean_daily_intensities_wide %>%
   tidyr::gather(key = "intensity", value = "mean_minutes", -id) %>%
-  mutate(intensity = factor(intensity, levels = rev(intensity_order)))
+  mutate(intensity = factor(intensity, levels = intensity_order))
 
-ggplot(mean_daily_intensities_long, aes(x= id, y= mean_minutes, fill= intensity)) +
+# Generate data to order IDs by average "Very Active" time
+mean_very_active_time_by_id <- mean_daily_intensities %>%
+  filter(intensity == "very_active") %>%
+  arrange(mean_minutes)
+
+#Convert ID to factor ordered by average "Very Active" time
+mean_daily_intensities$id <- factor(
+  mean_daily_intensities$id,
+  levels = mean_very_active_time_by_id$id)
+
+# Comment out this line to include Sedentary time in the graph
+#mean_daily_intensities <- mean_daily_intensities %>% filter(intensity != "sedentary")
+
+ggplot(mean_daily_intensities, aes(x= id, y= mean_minutes, fill= intensity)) +
   geom_bar(stat = "identity") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-```
-
-```{r average_intensities_by_id_weekly}
-# For each ID, seperate daily averages for the four intensity levels
-intensity_order = c("very_active", "fairly_active", "lightly_active")
-mean_weekly_intensities <- intensity_sum_days_wide %>%
-  group_by(id) %>%
-  summarize("lightly_active" = mean(minutes_lightly_active)*7/60,
-            "fairly_active" = mean(minutes_fairly_active)*7/60,
-            "very_active" = mean(minutes_very_active)*7/60)
-  
-mean_weekly_intensities_long <- mean_weekly_intensities %>%
-  tidyr::gather(key = "intensity", value = "mean_hours", -id) %>%
-  mutate(intensity = factor(intensity, levels = rev(intensity_order)))
-
-ggplot(mean_weekly_intensities_long, aes(x= id, y= mean_hours, fill= intensity)) +
-  geom_bar(stat = "identity") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title="Average Time by Intensity Zone",
+       x = "User ID",
+       y = "Total Average Daily Time (minutes)")
 ```
 
 Immediately, a trend is clear:
@@ -1371,14 +1368,12 @@ Immediately, a trend is clear:
 * The majority of non-Sedentary time is spent "Lightly Active"
 
 Caveats:
-* The averages don't add up to full days, so its possible people aren't tracking all of their exercising.
+* The averages don't add up to full weeks, so its possible people aren't tracking all of their exercising.
 
 The original idea here was to see who's burning the calories and how, so now let's plot active time against average calories burned. For this I generated three graphs, plotting calories burned against:
 * Average non-sedentary time (sum of Lightly, Fairly, and Very Active minutes)
 * Average active time (sum of Fairly and Very Active minutes)
 * Average very-active time (sum of Very Active minutes)
-
-TODO: Display gradient of line-of-best-fit as well as R^2 value
 
 ```{r calories_vs_activity}
 mean_non_sedentary_time <- intensity_sum_days_wide %>%
@@ -1443,36 +1438,516 @@ plot_cal_vs_non_sedentary <- plot_cal_vs_non_sedentary + scale_x_continuous(limi
 plot_cal_vs_active <- plot_cal_vs_active + scale_x_continuous(limits=c(0,350))
 plot_cal_vs_very_active <- plot_cal_vs_very_active + scale_x_continuous(limits=c(0,350))
 
-grid.arrange(plot_cal_vs_non_sedentary, plot_cal_vs_active, plot_cal_vs_very_active, ncol = 3)
+grid.arrange(plot_cal_vs_non_sedentary, plot_cal_vs_active, plot_cal_vs_very_active, nrow = 3)
 ```
 
+Final Findings:
 
-Calories burned is shown to correlate only loosely with non-sedentary time, withR^2 = 0.041, but more tightly with active and very-active time, with R^2 = 0.32 and R^2 = 0.4, respectively.
+* Visual inspection of the charts confirms a fairly-obvious theory: more time spent doing higher-intensity activities correlates with a rapid increase in calories burned. The relationship 
+* Calories burned is shown to correlate only loosely with total non-sedentary time, with R^2 = 0.041, but more tightly with active and very-active time, with R^2 = 0.32 and R^2 = 0.4, respectively.
+* The scatterplot for Very Active time show a small group of outliers with very high calorie burn and Very Active time
+* There's a decent spread of calories-burned even at the lower ranges of active time, which is what you'd expect from a group of mostly-sedentary people of presumably different ages, heights, weights, and genders
 
-Visual inspection of the charts confirms a fairly-obvious theory: more time spent doing higher-intensity activities correlates with a rapid increase in calories burned. 
+### TODO: Exercise Intensity
 
-UNSCIENTIFIC: There's also a decent spread of calories-burned even at the lower ranges of active time, which is what you'd expect from a diverse group of mostly-sedentary people.
+Questions:
 
-TODO: Histogram the weekly activity hours
-Overall finding: most people aren't doing more than 0-5 hours moderate/heavy exercise per week. No more than 4 people are doing more than 10 hours per week.
+* How much exercise are people doing? OR: Frequency of exercise: do those who track track often? 
+* Average intensity: are people tracking their exercises exercising very hard? Answer: it's 50/50
+* What kind of exercise are people doing?
+  * Intensity vs distance: who's outdoors, and who's at the gym?
+* Do people change their exercise habits over time?
 
-#### Why Bellabeat doesn't need MET tracking
+Findings:
+* All users are majority "Lightly Active" when active at all
+
+Not clear yet:
+* What level of Very Active do most users fall below?
+* When people work out, are they "Very Active"? There appears to be a mix of Fairly and Very active levels, but this is aggregated across the week and may not reflect workouts: for example, it could be the case that Fairly Active minutes accrue during the week similarly to Lightly Active minutes, whereas Very Active minutes come in bursts
+* Is "Fairly Active" more common than "Very Active"?
+
+#### How much exercise are people doing?
+
+Question: Simple questions first: how much time are people spending in a non-sedentary state?
+
+```{r viz_average_daily_intensities_by_id}
+# For each ID, generate averages for the three non-sedentary intensity levels
+
+mean_daily_intensities_wide <- intensity_sum_days_wide %>%
+  group_by(id) %>%
+  summarize("sedentary" = mean(minutes_sedentary) / 60,
+            "lightly_active" = mean(minutes_lightly_active) / 60,
+            "fairly_active" = mean(minutes_fairly_active) / 60,
+            "very_active" = mean(minutes_very_active) / 60)
+
+#Convert data to long-format for plotting as a histogram
+intensity_order = c("sedentary", "lightly_active", "fairly_active", "very_active")
+mean_daily_intensities_long <- mean_daily_intensities_wide %>%
+  tidyr::gather(key = "intensity", value = "mean_hours", -id) %>%
+  mutate(intensity = factor(intensity, levels = intensity_order))
+
+
+
+# Generate data to order IDs by average "Very Active" time
+mean_daily_intensities_wide <- mean_daily_intensities_wide %>%
+  mutate("total_active" = lightly_active + fairly_active + very_active) %>%
+  arrange(total_active)
+
+#Convert ID to factor ordered by average "Very Active" time
+mean_daily_intensities_long$id <- factor(
+  mean_daily_intensities_long$id,
+  levels = mean_daily_intensities_wide$id)
+
+# Comment out this line to include Sedentary time in the graph
+#mean_daily_intensities <- mean_daily_intensities %>% filter(intensity != "sedentary")
+
+ggplot(mean_daily_intensities_long, aes(x= id, y= mean_hours, fill= intensity)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_y_continuous(breaks = seq(0, 24, by = 1)) +
+  labs(title="Average Time by Intensity Zone",
+       x = "User ID",
+       y = "Total Average Daily Time (hours)")
+```
+
+Answer:
+
+* The large majority of people's time is clearly being spent in a sedentary state.
+* This makes sense, since it includes sleep tracking as well as time spent awake but immobile
+* There is a wide spread of times spent non-sedentary, with no clear outliers at this point
+* The large majority of non-sedentary time is Lightly Active
+
+Given how large the majority of non-Sedentary time is "Lightly Active", and based on our understanding of the Intensity zones from previous sections, I will assume "Lightly Active" time includes any activity more intense than sitting down, up to an including activities like walking for leisure. Anything more intense would therefore fall into the "Fairly Active" or "Very Active" categories. With this in mind, I'll proceed with the assumption that time spent in either of these two zones is time the user spends intentionally exercising.
+
+Question: How much time are our users exercising?
+
+```{r viz_active_hours_by_count}
+# Update total_active to reflect new definition
+mean_daily_intensities_wide <- mean_daily_intensities_wide %>%
+  mutate(total_active = fairly_active + very_active) %>%
+  arrange(total_active)
+
+mean_active_hours <- mean_daily_intensities_wide %>%
+  select(id, total_active)
+
+# Add cumulative user count for Pareto analysis
+total_users <- nrow(mean_active_hours)
+bin_width <- 0.25
+rounding_factor <- 1 / bin_width
+mean_active_hours <- mean_active_hours %>%
+  mutate(total_active_rounded = round(total_active * rounding_factor) / rounding_factor) %>%
+  mutate(cumulative_users = row_number() / total_users)
+
+mean_hours <- mean(mean_active_hours$total_active)
+median_hours <- median(mean_active_hours$total_active)
+
+ymax <- 12
+xmax <- 13.5
+ggplot(mean_active_hours, aes(x=total_active)) +
+  geom_histogram(binwidth = bin_width, col="white") +
+  scale_x_continuous(breaks = seq(0, xmax, by = bin_width)) +
+  geom_line(aes(x = total_active_rounded,
+                y = cumulative_users * ymax),
+            col="red") +
+  geom_vline(aes(xintercept = mean_hours, col = 'red')) +
+  geom_vline(aes(xintercept = median_hours), col = 'blue') +
+  scale_y_continuous(name = "Number of Users",
+                     breaks = seq(0, ymax, by = 1),
+                     sec.axis = sec_axis(~./ymax,name = "Cumulative Percentage of Users")) +
+  labs(title = "Active Hours per Week",
+       x = "Hours")
+
+```
+
+Answer: The majority of users (24, or 72.7%) get less than 45 minutes of Active Time per week on average.
+
+Findings:
+* Most people in the dataset are not doing much more than very light exercise.
+* There are a small number (6, or 18%) who do more than 1 hour a week on average.
+
+Recommendations:
+
+* Based on this data, the number of people using their fitbits to track intense activity is quite small. The marketing strategy should focus on other features.
+
+#### What kind of exercise are people doing?
+
+Question: Do people vary in their exercise intensity? When exercising, i.e. not Sedentary or Lightly Active, do users log more "Fairly Active" or "Very Active" time? 
+
+```{r viz_proportion_intensity}
+mean_daily_intensities_active <- mean_daily_intensities %>%
+  filter(intensity != "sedentary" & intensity != "lightly_active")
+
+mean_daily_intensities_wide <- mean_daily_intensities_wide %>%
+  mutate(total_active_time = fairly_active + very_active) %>%
+  mutate(proportion_very_active = very_active / total_active_time)
+
+mean_daily_intensities_wide <- mean_daily_intensities_wide %>%
+  arrange(proportion_very_active)
+
+mean_daily_intensities_active$id <- factor(
+  mean_daily_intensities_active$id,
+  levels = mean_daily_intensities_wide$id)
+
+ggplot(mean_daily_intensities_active, aes(x= id, y= mean_minutes, fill= intensity)) +
+  geom_bar(stat = "identity",
+           position = "fill") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title="Proportion of Average Time by Intensity Zone",
+       x = "User ID",
+       y = "Average Daily Time (%)")
+```
+
+Answer: It's quite evenly spread out from around 10% Very Active to around 90% Very Active across all users, with no clear outliers.
+
+Question: Do people who track more do more-intense exercise?
+
+The proportion of Active Time spent Very Active was plotted against the total Active Time to see if there was a correlation. From the earlier analysis of overall Active Hours per week, we can see that Active Hours are skewed right and concentrated towards the lower end: given this distribution, I also re-ran the analysis twice, once with the upper quintile of users removed, and once with the lower quintile removed. The results are plotted below.
+
+```{r viz_logged_minutes_vs_intensity}
+plot_all_data <- ggplot(mean_daily_intensities_wide, aes(x=total_active_time, y=proportion_very_active)) +
+  geom_point() +
+  geom_smooth(method = "lm",
+              se = FALSE,
+              color = "blue") +
+  stat_cor(aes(label=..rr.label..),
+           label.x=0,
+           label.y=0) +
+  labs(title="Proportion Very Active vs. Total Active Time",
+       x = "Average Weekly Active Time (hours)",
+       y = "Proportion of Very Active Time (%)")
+
+mdiw_temp <- mean_daily_intensities_wide %>%
+  filter(total_active_time <= 1.25) # id != "3977333714")
+
+plot_no_upper_quint <- ggplot(mdiw_temp, aes(x=total_active_time, y=proportion_very_active)) +
+  geom_point() +
+  geom_smooth(method = "lm",
+              se = FALSE,
+              color = "blue") +
+  stat_cor(aes(label=..rr.label..),
+           label.x=0,
+           label.y=0) +
+  labs(title="Proportion Very Active vs. Total Active Time (Highest Quintlie Removed)",
+       x = "Average Weekly Active Time (hours)",
+       y = "Proportion of Very Active Time (%)")
+
+mdiw_temp <- mean_daily_intensities_wide %>%
+  filter(total_active_time > 0.25) # id != "3977333714")
+
+plot_no_lower_quint <- ggplot(mdiw_temp, aes(x=total_active_time, y=proportion_very_active)) +
+  geom_point() +
+  geom_smooth(method = "lm",
+              se = FALSE,
+              color = "blue") +
+  stat_cor(aes(label=..rr.label..),
+           label.x=0,
+           label.y=0) +
+  labs(title="Proportion Very Active vs. Total Active Time (Lowest Quintile Removed)",
+       x = "Average Weekly Active Time (hours)",
+       y = "Proportion of Very Active Time (%)")
+
+rm(mdiw_temp)
+
+plot_all_data <- plot_all_data + 
+  scale_x_continuous(limits=c(0,2)) + 
+  scale_y_continuous(limits=c(0,1))
+plot_no_upper_quint <- plot_no_upper_quint + 
+  scale_x_continuous(limits=c(0,2)) + 
+  scale_y_continuous(limits=c(0,1))
+plot_no_lower_quint <- plot_no_lower_quint + 
+  scale_x_continuous(limits=c(0,2)) + 
+  scale_y_continuous(limits=c(0,1))
+
+grid.arrange(plot_all_data, plot_no_upper_quint, plot_no_lower_quint, ncol = 3)
+
+
+```
+
+Findings: 
+* Overall, Very Active Proportion was positively correlated with Active time, with an R^2 value of 0.27.
+* Removing the upper quintile decreased the correlation to 0.23, indicating that those doing particularly high levels of exercise are also particularly active.
+* Removing the lower quintile increased the correlation to 0.32, indicationg that those doing the least exercise are also engaged in a wider range of activities.
+
+Overall, these findings indicate that the majority of the cohort is engaged in a wide range of activities, with those doing more exercise being slightly more likely to engage in more intense exercise. There is a large subset of the group doing a low amount of varied exercise, as well as a small group of outliers doing a higher amount of more-intense exercise.
+
+Recommendations:
+
+* To appeal to the FitBit market, the marketing for the Ivy's exercise tracking should highlight a broad range of activities ranging from gentle to more intense. The marketing should not target highly-athletic groups, as these represent only a small part of the user base.
+
+
+#### TO OMIT: Workout-based Analysis
+
+A limitation of analysing the overall weekly time spent in the different zones is that it does not identify discrete "sessions" of physical activity. This means that we could get misleadingly similar final numbers for two different lifestyles: for example, one user might do regular short bursts of exertion (such as climbing stairs in an office) but never go to the gym, while a second user might regularly go to the gym but is otherwise sedentary.
+
+To get around this, I took the minute-by-minute intensity data and grouped it not just by ID but by timestamp difference: any timestamps within a certain distance apart were grouped into one "session". The resultant sessions gave me a new data point to analyse.
+
+```{r get_workouts, eval=FALSE}
+
+# I want to group exercises together for data logged within a certain time frame of the next/previous item
+# e.g. logs within 20 minutes of each other, but not further apart than that
+# This would let me break up the minute-by-minute data into discrete "sessions"
+
+max_time_diff <- minutes(10)
+min_workout_duration <- 15
+intensity_mapping <- c("Fairly Active" = 1, "Very Active" = 2)
+
+workouts_src_workout_wide <- intensity_src_mins_tall %>%
+  filter(intensity == "Fairly Active" | intensity == "Very Active") %>%
+  arrange(activity_minute) %>%
+  group_by(id) %>%
+  mutate(workout = cumsum(c(TRUE, diff(activity_minute) > max_time_diff)),
+         intensity_numeric = as.numeric(
+           factor(
+             intensity,
+             levels = names(intensity_mapping),
+             labels = intensity_mapping
+             )
+           )
+         ) %>%
+  group_by(id, workout) %>%
+  summarize(workout_start = min(activity_minute),
+            workout_end = max(activity_minute),
+            workout_duration = difftime(workout_end, workout_start, units="mins"),
+            workout_mean_intensity = round(mean(intensity_numeric), digits=0)) %>%
+  filter(workout_duration > min_workout_duration)
+```
+
+Now that the individual workouts have been identified, I can summarize them for each user. This allows me to plot average weekly sessions:
+
+```{r viz_session_counts_total, eval=FALSE}
+weeks_in_sample = 30 / 7 # 30 days in dataset
+workouts_sum_id_wide <- workouts_src_workout_wide %>%
+  group_by(id) %>%
+  summarize(fairly_active_sessions = sum(workout_mean_intensity == 1),
+            very_active_sessions = sum(workout_mean_intensity == 2)) %>%
+  mutate(total_sessions = fairly_active_sessions + very_active_sessions) %>%
+  mutate(average_weekly_sessions = ceiling(total_sessions / weeks_in_sample))
+
+session_count_cumulative <- workouts_sum_id_wide %>%
+  select(id, average_weekly_sessions) %>%
+  arrange(average_weekly_sessions)
+
+total_users <- nrow(session_count_cumulative)
+session_count_cumulative <- session_count_cumulative %>%
+  mutate(cumulative = row_number() / total_users)
+
+ymax <- 5
+ggplot(session_count_cumulative, aes(x=average_weekly_sessions)) +
+  geom_histogram(binwidth = 1, col="white") +
+  scale_x_continuous(breaks = seq(0, 20, by = 1)) +
+  geom_line(aes(x = average_weekly_sessions,
+                y = cumulative * ymax),
+            col="red") +
+  scale_y_continuous(name = "Number of Users",
+                     sec.axis = sec_axis(~./ymax,name = "Cumulative Percentage of Users")) +
+  labs(title = "Average Weekly Sessions",
+       x = "Average Weekly Sessions")
+```
+
+Findings: most people are averaging 5 "sessions" or less of intense activity per week.
+
+```{r viz_workouts_by_duration, eval=FALSE}
+ggplot(workouts_src_workout_wide, aes(x=workout_duration)) +
+  geom_histogram(bins=20)
+```
+
+TODO: Analyse the two outliers
+
+When identifying the individual workout sessions, I also analysed the intensity data to determine an average intensity for each session. 
+
+Question: Are users more likely to engage in Fairly or Very Active activities when exercising?
+
+To answer this, I summarized the intensity data on a per-ID basis, to get separate totals for sessions that averaged Fairly Active and Very Active, respectively.
+
+```{r viz_session_counts_by_intensity, eval=FALSE}
+session_count_long <- workouts_sum_id_wide %>%
+  select(id, fairly_active_sessions, very_active_sessions) %>%
+  tidyr::gather(key = "intensity", value = "count", -id) %>%
+  mutate(intensity = factor(intensity, levels = c("fairly_active_sessions", "very_active_sessions")))
+
+# Reorder session_count_long%id by "Very Active Session" count
+
+workouts_sum_id_wide <- workouts_sum_id_wide %>%
+  mutate(proportion_very_active = very_active_sessions / total_sessions) %>%
+  arrange(proportion_very_active)
+
+session_count_long$id <- factor(
+  session_count_long$id,
+  levels = workouts_sum_id_wide$id)
+
+# Plot stacked bar-graph for sessions, similar to the one for overall time
+
+ggplot(session_count_long, aes(x = id, y = count, fill=intensity)) +
+  geom_bar(stat = "identity",
+           position = "fill") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Session Counts by Intensity",
+       x = "User ID",
+       y = "Sessions")
+```
+
+Finding: Visual inspect shows a wide range
+
+```{r viz_session_proportion, eval=FALSE}
+workouts_sum_id_wide <- workouts_sum_id_wide %>%
+  mutate(proportion_very_active = very_active_sessions / total_sessions)
+
+bin_width_pct <- 0.2
+ggplot(workouts_sum_id_wide, aes(x = proportion_very_active)) +
+  geom_histogram(binwidth = bin_width_pct,
+                 col = "white") +
+  scale_x_continuous(breaks = seq(0, 1.0, bin_width_pct)) +
+  scale_y_continuous(breaks = seq(0,17,by=1)) +
+  labs(title = "Proportion of Very Active Sessions",
+       x = "Proportion of Very Active Sessions (%)",
+       y = "Count of Users")
+```
+
+```{r viz_workouts_by_intensity, eval=FALSE}
+ggplot(workouts_src_workout_wide, aes(x=workout_mean_intensity)) +
+  geom_histogram(binwidth = 1, col = "white") +
+  scale_x_continuous(
+    breaks = seq(1, 2, by = 1),
+    labels = c("Fairly Active", "Very Active"))
+```
+
+Findings:
+
+* The vast majority of non-sedentary times are spent in Lightly Active Mode
+* The remaining Fairly and Very Active time is pretty evenly spread, with 15 users mostly Fairly Active, and 16 users mostly Very Active
+* Majority of users do 5 sessions per week or fewer on average
+
+Conclusions: users aren't 
+
+
+#### TO OMIT: Why Bellabeat doesn't need MET tracking
 
 All of the most-used features from the database are available on the Bellabeat Ivy except MET tracking. The MET (Metabolic Equivalent of Task) is a unit of measurement for energy expenditure, or exertion, intended to aid direct comparison between different types of exercise. The Ivy does not generate MET data, but does track calories burnt, which can also be used as a measure of exertion. I recommend presenting calorie tracking as a suitable alternative when targeting advertising at those customers who use the MET tracking feature.
 
 Note that the two features are nearly equivalent and may not present any meaningful distinction to customers.
 
-#### TODO: Consumer Behaviors w.r.t. Calorie Tracking vs. MET Tracking
-### TODO: Exercise Intensity
-
-* Average intensity: are people tracking their exercises exercising very hard?
-* Frequency of exercise: do those who track track often?
-* Intensity vs distance: who's outdoors, and who's at the gym?
-
 ### TODO: Step Counts
 
 * Step count vs distance and intensity: are people running? Walking?
 * Do people hit their 10,000 steps? (Yes, I know that's an arbitrary figure)
+* Do people increase their step counts over time?
+
+#### Average Daily Step Counts
+
+Question: How many steps are people getting?
+
+```{r average_daily_step_counts}
+average_daily_steps <- steps_sum_days_tall %>%
+  group_by(id) %>%
+  summarize(average_steps = mean(steps_total))
+
+
+mean_steps <- round(mean(average_daily_steps$average_steps),digits=0)
+median_steps <- round(median(average_daily_steps$average_steps),digits=0)
+sum_stats <- data.frame(Statistics = c("Mean", "Median"),
+                        value = c(mean_steps, median_steps))
+label_text <- paste("Mean =", mean_steps, "steps\nMedian =", median_steps, "steps")
+
+
+ggplot(average_daily_steps) +
+  geom_histogram(aes(x=average_steps),
+                 binwidth = 1000,
+                 col = "white") +
+  geom_vline(data = sum_stats,
+             aes(xintercept = value,
+                 linetype = Statistics,
+                 col = Statistics),
+             size = 1) +
+  scale_x_continuous(breaks = seq(0,16000,by=1000)) +
+  annotate("text", x = Inf, y = Inf, label = label_text,
+           hjust = 1, vjust = 1, size = 4) +
+  labs(title = "Average Daily Steps by User",
+       x = "Average Daily Steps",
+       y = "Users")
+```
+```{r waste_of_time_plots, eval=FALSE}
+ggplot() +
+  geom_bar(data = hist_data,
+           aes(x = mid, y = counts),
+           stat = "identity",
+           color = "white",
+           fill = "lightblue") +
+  geom_density(data = density_data,
+               aes(x = x, y = y),
+               color = "red") +
+  scale_y_continuous(name = "Counts",
+                     sec.axis = sec_axis(~ . / sum(hist_data$counts),
+                                         name = "Density")) +
+  labs(title = "Average Daily Steps by User",
+       x = "Average Daily Steps",
+       y = "Users")
+
+p <- ggplot(average_daily_steps, aes(x = average_steps)) +
+  geom_histogram(binwidth = 1000,
+                 color = "white",
+                 fill = "lightblue",
+                 alpha = 0.7) +
+  scale_y_continuous(name = "Counts")
+
+p + geom_density(color = "red", size = 1) +
+  scale_y_continuous(
+    sec.axis = sec_axis(~ . / sum(average_daily_steps$average_steps)),
+    name = "Density"
+    ) +
+  labs(title = "Average Daily Steps by User",
+       x = "Average Daily Steps",
+       y = "Users")
+```
+
+Answer: Typically 7500.
+What does that tell us?: Not much
+
+Question: What's the most popular day to step?
+
+```{r average_steps_by_weekday}
+average_weekday_steps <- steps_sum_days_tall %>%
+  mutate(weekday = wday(activity_day)) %>%
+  group_by(weekday) %>%
+  summarize(weekday_average = mean(steps_total))
+
+ggplot(average_weekday_steps) +
+  geom_col(aes(x=weekday,y=weekday_average))
+```
+
+Answer: Saturday
+What does this tell us? Not much
+
+#### Do people increase their step counts over time?
+
+```{r steps_coefficients_inline}
+# Naive method: Graph all the steps over time
+
+ggplot(steps_sum_days_tall) +
+  geom_line(aes(x = activity_day, y = steps_total)) +
+  facet_wrap(vars(id))
+
+# Cynical method: generate all the correlations between steps and time
+
+step_count_coefficients <- steps_sum_days_tall %>%
+  mutate(day_of_year = yday(activity_day)) %>%
+  group_by(id) %>%
+  summarize(correlation = cor(day_of_year, steps_total))
+
+plot_bin_width <- 0.1
+ggplot(step_count_coefficients, aes(x = correlation)) +
+  geom_histogram(binwidth = plot_bin_width, color = "white") +
+  scale_x_continuous(breaks = seq(-1.0,1.0,by=plot_bin_width)) +
+  scale_y_continuous(breaks = seq(0,13,by=1)) +
+  labs(title = "Correlations between Step Count and Time",
+       caption = "Positive values imply Step Count generally increased over time.",
+       x = "Coefficient of Correlation",
+       y = "Users")
+```
+
+Answer: Mostly no. The majority of users actually did fewer steps over time
+What this tells us: 
+
+* You shouldn't claim that this device encourages people to walk more.
 
 ## TODO: Analysing the lesser-used features
 
@@ -1521,6 +1996,105 @@ ggplot(data = sleep_src_mins_tall_oneId) +
 
 
 
+
+
+## TODO: Ivy-first method
+
+Use the advertised features of the Ivy to guide the analysis
+
+### Readiness score
+
+* Point-of-difference feature
+* Check when people are wearing their fitbits
+  * Need to know if they're wearing them at night ("While you sleep at night and your body is in its calmest state, Ivy measures your resting heart rate, respiratory rate, and cardiac coherence.")
+  * Need to know if they're wearing them first thing in the morning
+
+```{r night_usage_heartrate}
+sec2hour <- 1 / 3600
+sleep_range_stt_hour <- 22
+sleep_range_end_hour <- 6
+max_poll_gap_secs <- 60
+min_hours_logged <- 6
+
+nights_logged_by_user <- heartrate_src_seconds_tall %>%
+  mutate(night_of_yday = ifelse(hour(heart_rate_second) >= sleep_range_stt_hour, yday(heart_rate_second),
+                                ifelse(hour(heart_rate_second) < sleep_range_end_hour, yday(heart_rate_second) - 1,
+                                       NA))) %>%
+  filter(!is.na(night_of_yday)) %>%
+  group_by(id) %>%
+  mutate(time_since_last_poll = as.double(difftime(heart_rate_second, lag(heart_rate_second), units = "secs"))) %>%
+  filter(time_since_last_poll <= max_poll_gap_secs) %>%
+  group_by(id, night_of_yday) %>%
+  summarize(logged_time_hours = sum(time_since_last_poll) * sec2hour) %>%
+  group_by(id) %>%
+  summarize(nights_logged = sum(logged_time_hours > min_hours_logged))
+
+View(nights_logged_by_user)
+```
+
+### Heart Rate Tracking
+
+"Use it to track your workout progress and optimize personal training routines."
+
+### Respiratory Rate
+
+"How you breathe says a lot about your mind and body."
+* Point-of-difference feature
+* I don't believe the FitBit has anything for this, so look for a proxy
+
+### Resting Heart Rate
+
+"Resting heart rate (RHR) is the number of heartbeats per minute, measured when the body is fully calm during the night."
+
+* Point-of-difference feature
+  * Especially if people *aren't* wearing their devices at night
+
+### Cardiac Coherence
+
+"The cardiac coherence parameter shows how your heart rate variability and breathing rate are synchronized."
+
+* Point-of-difference feature
+
+### Wellness Score
+
+"Ivy monitors your activity, sleep, meditation, menstrual cycle, and hydration log..."
+
+* Point-of-difference feature
+
+### Activity Tracking
+
+"Ivy will recognize your activity during the day, help you track up to 80 types of activity, count your steps, and discover how all that affects your body."
+
+* Do people count their steps? Yeah, all but three of them did
+* Do people engage in different types of activity? Yeah, big spread of Fairly/Very Active intensity levels, safe to say people don't all work out the same, so the more activity tracking the merrier
+
+### Hydration
+
+"Know how much you really drink and set water reminders. Also, factor in your unique physique, activity levels, age, height, and weight to calculate the right amount of water for your body."
+
+* Point-of-difference feature
+* That last part about "factor in your unique physique" may be more or less important to people, and that would be evidenced by how many people used bodycomp features
+* No direct data to analyse existing usage for this kind of feature
+
+### Sleep Tracking
+
+"Ivy monitors your sleep patterns and knows exactly how your night is going to affect the next day."
+
+* Again, first off is just how many people used the sleep-tracking feature
+* Check if volume or quality of sleep improved
+
+### Mindfulness
+
+"Ivy helps you keep track of your mindful minutes and get insight into how much your meditative, breathing, or similar practices affect your psycho-physical well-being."
+
+* Point-of-difference feature
+* If there is a proxy for breathing, maybe I can determine if people are meditating with their fitbits, although that seems like a stretch
+
+### Menstrual Cycle
+
+"Ivy helps you tune in with your body’s rhythm and track your period, ovulation, pregnancy, or birth control. Monitor your changes in the menstrual cycle, log symptoms, and even predict issues before they appear."
+
+* Point-of-difference feature
 
 # TODO Step 5: Share
 

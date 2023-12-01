@@ -1,0 +1,409 @@
+
+```{r night_usage_heartrate_old}
+
+start_date <- as.POSIXct("2016-04-22 20:40:00", tz = "UTC")
+end_date <- as.POSIXct("2016-04-23 12:33:00", tz = "UTC")
+
+heartrateviz <- heartrate_src_seconds_tall %>%
+  filter(id == "2022484408",
+         heart_rate_second > start_date & heart_rate_second < end_date)
+
+ggplot(heartrateviz) +
+  geom_point(aes(x = heart_rate_second, y = heart_rate))
+
+# Lets start with a baseline visualisation. I visualised the entire run of HR data points for each ID to get an overall picture. I used geom_point to prevent lines being drawn across gaps in the data. The data points were color-coded to indicate which ones fell within a pre-defined "Sleep Time Range", defined arbitrarily as between 8pm and 6am.
+
+heart_rate_sleep_analysis <- heartrate_src_seconds_tall %>%
+  mutate(sleep_time = hour(heart_rate_second) >= 20 | hour(heart_rate_second) < 6)
+
+ggplot(heart_rate_sleep_analysis) +
+  geom_point(aes(x=heart_rate_second, y = heart_rate, color = sleep_time)) +
+  facet_wrap(vars(id))
+
+# The resultant plot shows a range of different use cases. A handful of plots show large gaps across days where no HR was recorded. Most show fairly consistent usage, with the data points appearing contiguous across most nights, through the sleep time range.
+# In order to determine accurately how often users sleep with their fitbits, I decided to analyse the timing between data points to identify gaps. Nights where there was no gap in the HR readings longer than a given value will be considered a night where the fitbit was worn to bed: all other nights not specifically identified as such will be considered fitbit-less.
+
+heart_rate_gaps <- heartrate_src_seconds_tall %>%
+  group_by(id) %>%
+  nest() %>%
+  mutate(gap = map(data, ~ difftime(.x$heart_rate_second, lag(.x$heart_rate_second, 1), units = "hours"))) %>%
+  mutate(gap_start = map(data, ~ ifelse(.x$gap < 1, NA, lag(.x$heart_rate_second,1))))
+%>%
+  filter(!is.na(gap_start)) %>%
+  mutate(gap_start = as.POSIXct(gap_start, tz = "UTC")) %>%
+  rename(gap_end = heart_rate_second)
+
+# The method for doing so was two-fold:
+# 1. Identify gaps between readings of more than one hour, chosen as a suitable length of time to suggest the person had gone to sleep
+# 2. For each of those gaps, locate the previous HR reading to determine the dates on either side of the gap
+# 3. If the date changes by exactly one between dates, the gap spans across midnight: this is counted as sleeping without the FitBit on.
+# Notes: 
+#   This method assumes that users go to sleep before midnight.
+#   Comparing the date diff to one ensures gaps spanning more than a day are not counted as a... wait
+# 
+# The method for doing so involves finding nights where there was NO gap
+# 1. 
+
+test_date <- as.POSIXct("2016-04-12", tz = "UTC")
+test_date <- test_date + days(1)
+
+sleep_hour_stt <- 20
+sleep_hour_end <- 6
+
+night_ranges <- tibble() %>%
+  add_column(stt := POSIXct(0)) %>%
+  add_column(end := POSIXct(0))
+
+
+
+# heart_rate_data <- heartrate_src_seconds_tall %>%
+#   filter(id == "2026352035")
+# 
+# result <- sleep_ranges %>%
+#     mutate(poll_count = map2_int(stt,end, 
+#       ~sum(heart_rate_data$heart_rate_second >= .x & heart_rate_data$heart_rate_second <= .y))
+#     ) %>%
+#     mutate(slept_with_fitbit = poll_count >= min_polls) %>%
+#     mutate(id = "2026352035")
+```
+
+``` {r}
+
+ggplot(heartrate_src_seconds_tall %>% filter(id == "6962181067")) +
+  geom_point(aes(x = heart_rate_second, y = heart_rate))
+
+
+for (hr_id in unique(heartrate_src_seconds_tall$id)) {
+  print(hr_id)
+  # Get heartrate data for this ID
+  hr_data <- heartrate_src_seconds_tall %>% filter(id == hr_id)
+  hr_data <- hr_data %>% arrange(heart_rate_second)
+  glimpse(hr_data)
+  # Find gaps in heart rate logs
+  gap_data <- hr_data %>%
+    # Check timediff between each record
+    mutate(gap = difftime(heart_rate_second, lag(heart_rate_second, 1), units="hours")) %>%
+    # For gaps longer than an hour, get the timestamp preceding this one
+    mutate(gap_stt = ifelse(gap < 1, NA, lag(heart_rate_second,1))) %>%
+    # Filter data down to rows containing the gaps
+    filter(!is.na(gap_stt)) %>%
+    mutate(gap_stt = as.POSIXct(gap_stt, tz = "UTC")) %>%
+    rename(gap_end = heart_rate_second)
+  glimpse(gap_data)
+  id_sleep_ranges <- sleep_ranges
+  for(i in 1:nrow(gap_data)) {
+    # For each gap, determine which nights fall within the gap
+    gap_stt <- gap_data$gap_stt[i]
+    gap_end <- gap_data$gap_end[i]
+    for(j in 1:nrow(sleep_ranges)) {
+      sleep_stt <- sleep_ranges$stt[j]
+      sleep_end <- sleep_ranges$end[j]
+      # cat("gap_stt: ", gap_stt,
+      #     " sleep_stt: ", sleep_stt,
+      #     " sleep_end: ", sleep_end,
+      #     " gap_end: ", gap_end,
+      #     "\n", sep = "")
+      if (sleep_stt >= gap_stt & sleep_end <= gap_end) {
+        cat("Sleep range within gap:\n", sep = "")
+        sleep_ranges$had_fitbit <- FALSE
+      } else {
+        cat("Sleep range NOT within gap:\n", sep = "")
+        sleep_ranges$had_fitbit <- TRUE
+      }
+      cat("Gap:\n",
+            "gap_stt: ", gap_stt,
+            " sleep_stt: ", sleep_stt,
+            " sleep_end: ", sleep_end,
+            " gap_end: ", gap_end,
+            "\n", sep = "")
+    }
+  }
+}
+
+heart_rate_gaps <- heartrate_src_seconds_tall %>%
+  filter(id == "2026352035") %>%
+  # Filter down to sleep 
+  mutate(ttnextHR = difftime(lead(heart_rate_second, 1), heart_rate_second))
+
+
+
+
+diffs <- diff(heart_rate_data$heart_rate_second)
+one_hour <- 60 * 60
+gap_stt_positions <- which(diffs > one_hour) - 1
+gap_positions2 <- gap_positions - 1
+
+
+# Count datapoints within each range
+# Less than a threshold, person did not sleep that night
+
+
+heart_rate_gaps <- heart_rate_data[gap_stt_positions, ]
+
+print(heart_rate_gaps[gaps_positions])
+
+
+
+for (hr_id in unique(heartrate_src_seconds_tall$id)) {
+  # Get heartrate data for this ID
+  print(hr_id)
+  hr_data <- heartrate_src_seconds_tall %>% 
+    filter(id == hr_id) %>% 
+    arrange(heart_rate_second)
+  glimpse(hr_data)
+  # Count datapoints in each range
+  poll_counts <- sum(hr_data$heart_rate_second >= sleep_ranges$stt & hr_data$heart_rate_second <= sleep_ranges$end)
+  for(i in 1:nrow(sleep_ranges)) {
+    sleep_stt <- sleep_ranges$stt[i]
+    sleep_end <- sleep_ranges$end[i]
+    cat("sleep_range: ", sleep_stt, "to",sleep_end,"\n")
+    # hr_data_range <- hr_data %>%
+    #   filter(heart_rate_second >= sleep_stt & heart_rate_second <= sleep_end)
+    poll_count <- sum(hr_data$heart_rate_second >= sleep_stt & hr_data$heart_rate_second <= sleep_end)
+    if (poll_count < min_polls) {
+      cat("count_data:", poll_count, "\n")
+    }
+  }
+}
+
+
+
+  id_sleep_ranges <- sleep_ranges
+  for(i in 1:nrow(gap_data)) {
+    # For each gap, determine which nights fall within the gap
+    gap_stt <- gap_data$gap_stt[i]
+    gap_end <- gap_data$gap_end[i]
+    for(j in 1:nrow(sleep_ranges)) {
+      sleep_stt <- sleep_ranges$stt[j]
+      sleep_end <- sleep_ranges$end[j]
+      # cat("gap_stt: ", gap_stt,
+      #     " sleep_stt: ", sleep_stt,
+      #     " sleep_end: ", sleep_end,
+      #     " gap_end: ", gap_end,
+      #     "\n", sep = "")
+      if (sleep_stt >= gap_stt & sleep_end <= gap_end) {
+        cat("Sleep range within gap:\n", sep = "")
+        sleep_ranges$had_fitbit <- FALSE
+      } else {
+        cat("Sleep range NOT within gap:\n", sep = "")
+        sleep_ranges$had_fitbit <- TRUE
+      }
+      cat("Gap:\n",
+            "gap_stt: ", gap_stt,
+            " sleep_stt: ", sleep_stt,
+            " sleep_end: ", sleep_end,
+            " gap_end: ", gap_end,
+            "\n", sep = "")
+    }
+  }
+}
+
+
+
+heart_rate_gaps <- heartrate_src_seconds_tall %>%
+  filter(id == "2026352035") %>%
+  mutate(gap = difftime(heart_rate_second, lag(heart_rate_second, 1), units="hours")) %>%
+  mutate(gap_start = ifelse(gap < 1, NA, lag(heart_rate_second,1))) %>%
+  filter(!is.na(gap_start)) %>%
+  mutate(gap_start = as.POSIXct(gap_start, tz = "UTC")) %>%
+  rename(gap_end = heart_rate_second)
+
+
+
+for (row in heart_rate_gaps) {
+  
+}
+
+sleep_time_stt <- 20
+sleep_time_end <- 6
+
+
+  filter(hour(heart_rate_second) >= sleep_time_stt | hour(heart_rate_second) < sleep_time_end) %>%
+
+# Generate gap data for all datapoints
+# Use iteration to group by ID and for each ID, check the largest gap within each day's night-time range
+    
+# Identify when a gap crossed "night time"
+# Gap started, arbitrarily, after 8pm and before 4am
+# Gap ended after 4am and before 8pm
+# Let's test it!
+# Doesn't work: gaps from 2pm to 6am the next day aren't counted
+# Retry: count if day of year of gap start is before current day
+# This appears to work very well
+
+heart_rate_gaps <- heart_rate_gaps %>%
+  mutate(slept_without_fitbit = yday(gap_start) < yday(heart_rate_second))
+
+
+%>%
+  filter(mday(heart_rate_second) >= 14 & mday(heart_rate_second) <= 15)
+
+
+  # nest() %>%
+  # mutate(gap = map(data, ~ .x$heart_rate_second - lag(.x$heart_rate_second, 1)))
+
+%>%
+  unnest(cols = c(data, gap)) %>%
+  replace(is.na(.), TRUE)
+
+false_count <- sum(calories_gaps$gap == FALSE)
+```
+
+``` {r simpler_way}
+days2secs <- 60*60*24
+# Max polling rate: 5 seconds
+# Range: 8 hours = 8 * 60 * 60 = 28800 seconds
+# 28800 (sec/hr) / 5 (sec/poll) = 5760 (poll/hr)
+# 5760 (poll/hr) * 0.8 = 4608
+# If data count < 1440, flag as less than 25% logged
+sleep_range_hours <- 8
+polls_per_second <- 1/5
+hour2sec <- 3600
+min_poll_pct <- 0.2
+min_polls <- sleep_range_hours * hour2sec * polls_per_second * min_poll_pct
+
+sleep_stt_range = seq(as.POSIXct("2016-04-12 20:00:00", tz = "UTC"),
+                      as.POSIXct("2016-05-12 20:00:00", tz = "UTC"),
+                      by=days2secs)
+sleep_end_range = seq(as.POSIXct("2016-04-13 06:00:00", tz = "UTC"),
+                      as.POSIXct("2016-05-13 06:00:00", tz = "UTC"),
+                      by=days2secs)
+sleep_ranges <- tibble(stt = sleep_stt_range,
+                       end = sleep_end_range)
+
+fitbit_nights <- tibble() %>%
+  add_column(stt := POSIXct(0)) %>%
+  add_column(end := POSIXct(0)) %>%
+  add_column(id := character(0)) %>%
+  add_column(poll_count := numeric(0)) %>%
+  add_column(slept_with_fitbit := logical(0))
+
+for (hr_id in unique(heartrate_src_seconds_tall$id)) {
+  # print(hr_id)
+  hr_data <- heartrate_src_seconds_tall %>% filter(id == hr_id)
+  result <- sleep_ranges %>%
+    mutate(id = hr_id) %>%
+    mutate(poll_count = map2_int(stt,end, 
+      ~sum(hr_data$heart_rate_second >= .x & hr_data$heart_rate_second <= .y))
+    ) %>%
+    mutate(slept_with_fitbit = poll_count >= min_polls)
+  fitbit_nights <- bind_rows(fitbit_nights, result)
+}
+
+fitbit_nights <- fitbit_nights %>%
+  group_by(id) %>%
+  summarize(fitbit_nights_total = sum(slept_with_fitbit))
+
+```
+
+```{r simplest_way}
+sleep_range_stt_hour <- 20
+sleep_range_end_hour <- 6
+required_coverage_hours <- 4
+
+min_timestamp_diffs <- heartrate_src_seconds_tall %>%
+  group_by(id) %>%
+  summarize(min_diff = min(diff(heart_rate_second)))
+ave_min_diff <- as.double(mean(min_timestamp_diffs$min_diff))
+seconds_covered_per_poll <- ave_min_diff # Average time covered by a poll, works out to about 2.5 seconds
+
+required_polls <- required_coverage_hours * 3600 / seconds_covered_per_poll
+
+hr_data_flagged <- heartrate_src_seconds_tall %>%
+  mutate(sleep_time = ifelse(hour(heart_rate_second) >= sleep_range_stt_hour, "PM",
+                             ifelse(hour(heart_rate_second) < sleep_range_end_hour, "AM",
+                                    NA))) %>%
+  mutate(sleep_night = ifelse(sleep_time == "PM", yday(heart_rate_second),
+                              ifelse(sleep_time == "AM", yday(heart_rate_second) - 1,
+                                     NA))) %>%
+  group_by(id, sleep_night) %>%
+  summarize(poll_count = sum(!is.na(sleep_time))) %>%
+  group_by(id) %>%
+  summarize(fitbit_nights = sum(poll_count > required_polls))
+View(hr_data_flagged)
+```
+
+```{r sleep_blocks_one_id}
+# Find the time to the next poll, and add to the sum if less than a predetermined "Not Wearing Device" threshold
+# If the time to the next poll is more than this threshold, assume the user took the device off: it might be that the HR sensor just can't detect them, but there's no way to be sure, so consider the time period between the two polls unlogged.
+# If the time to the next poll is less than threshold, assume that the user had the fitbit on for that time, so the time between this poll and that poll is considered "unlogged".
+
+sec2hour <- 1 / 3600
+sleep_range_stt_hour <- 20
+sleep_range_end_hour <- 6
+max_poll_gap_secs <- 60
+min_hours_logged <- 6
+
+sleep_blocks <- heartrate_src_seconds_tall %>%
+  filter(id == "4388161847") %>%
+  mutate(night_of_yday = ifelse(hour(heart_rate_second) >= sleep_range_stt_hour, yday(heart_rate_second),
+                              ifelse(hour(heart_rate_second) < sleep_range_end_hour, yday(heart_rate_second) - 1,
+                                     NA))) %>%
+  filter(!is.na(night_of_yday)) %>%
+  mutate(time_since_last_poll = as.double(difftime(heart_rate_second, lag(heart_rate_second), units = "secs"))) %>%
+  filter(time_since_last_poll <= max_poll_gap_secs) %>%
+  group_by(id, night_of_yday) %>%
+  summarize(logged_time_hours = sum(time_since_last_poll) * sec2hour) %>%
+  group_by(id) %>%
+  summarize(nights_logged = sum(logged_time_hours > min_hours_logged))
+
+View(sleep_blocks)
+```
+
+
+
+```{r}
+
+ggplot(heartrate_src_seconds_tall %>%
+  filter(id == "8877689391") %>%
+  mutate(nighttime = hour(heart_rate_second) >= sleep_range_stt_hour | hour(heart_rate_second) < sleep_range_end_hour)
+  ) +
+  geom_point(aes(x = heart_rate_second, y = heart_rate, color = nighttime))
+```
+
+```{r simple_gap_way}
+
+sleep_stt_range = seq(as.POSIXct("2016-04-12 20:00:00", tz = "UTC"),
+                      as.POSIXct("2016-05-12 20:00:00", tz = "UTC"),
+                      by=days2secs)
+sleep_end_range = seq(as.POSIXct("2016-04-13 06:00:00", tz = "UTC"),
+                      as.POSIXct("2016-05-13 06:00:00", tz = "UTC"),
+                      by=days2secs)
+sleep_ranges <- tibble(stt = sleep_stt_range,
+                       end = sleep_end_range)
+
+hr_data_gaps <- heartrate_src_seconds_tall %>%
+  group_by(id) %>%
+  nest() %>%
+  mutate(next_poll = map(data, ~ lead(.x$heart_rate_second))) %>%
+  mutate(gap = map(data, ~ difftime(lead(.x$heart_rate_second), .x$heart_rate_second, units = "hours"))) %>%
+  unnest(cols = c(data, next_poll, gap)) %>%
+  filter(gap >= 1.0)
+
+for (i in 1:nrow(sleep_ranges)) {
+  sleep_stt <- sleep_ranges$stt[i]
+  sleep_end <- sleep_ranges$end[i]
+  sleep_duration <- difftime(sleep_stt, sleep_end, units = "hours")
+  for (hr_id in unique(hr_data_gaps$id)) {
+    # How much does the gap overlap the target region?
+    id_gaps <- hr_data_gaps %>% filter(id = hr_id)
+    overlap <- 0
+    for (j in 1:nrow(id_gaps)) {
+      
+      overlap = (sleep_duration - max(0, difftime(sleep_stt, gap_stt)) - max(0, difftime(gap_end, sleep_end))) / sleep_duration
+      # if (gap_end < sleep_stt | gap_stt > sleep_end) { # No overlap
+      #   overlap <- overlap + 0
+      # } else if (gap_stt < sleep_stt & gap_end <= sleep_end) { # Gap overlaps LHS of sleep range
+      #   overlap <- overlap + difftime(sleep_stt, gap_end)
+      # } else if (gap_stt >= sleep_stt & gap_end > sleep_end) { # Gap overlaps RHS of sleep range
+      #   overlap <- overlap + difftime(gap_stt, sleep_end)
+      # } else { # Gap contained within sleep range
+      #   overlap <- difftime(gap_stt, gap_end)
+      # }
+    }
+  }
+}
+
+
+
+```

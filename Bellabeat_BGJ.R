@@ -1,54 +1,98 @@
-# feature_tibble <- tibble(id = unique_ids)
-# for (feature_name in feature_usage$feature) {
-#   feature_tibble <- add_column(feature_tibble, !!feature_name := FALSE)
-# }
-# cat("looping...\n")
-# for (i in 1:nrow(feature_tibble)) {
-#   id <- feature_tibble$id[i]
-#   for (j in 1:nrow(feature_usage)) {
-#     feature <- feature_usage$feature[j]
-#     id_list <- feature_usage$id_list[[j]]
-#     feature_used <- FALSE
-#     if (id %in% id_list) {
-#       cat("Found id \"",id,"\" using ",feature,".\n",sep="")
-#       feature_used <- TRUE
-#     } else {
-#       cat("Did not find id \"",id,"\" using ",feature,".\n",sep="")
-#     }
-#     feature_index <- which(colnames(feature_tibble) == feature)
-#     cat("Feature index:",feature_index,"\n")
-#     feature_tibble[i, feature_index] <- feature_used
-#   }
-# }
-# cat("looping done")
+days2secs <- 60*60*24
+sleep_ranges_stt = seq(as.POSIXct("2016-04-12 20:00:00", tz = "UTC"),
+                      as.POSIXct("2016-05-12 20:00:00", tz = "UTC"),
+                      by=days2secs)
+sleep_ranges_end = seq(as.POSIXct("2016-04-13 06:00:00", tz = "UTC"),
+                      as.POSIXct("2016-05-13 06:00:00", tz = "UTC"),
+                      by=days2secs)
+sleep_ranges <- tibble(stt = sleep_ranges_stt,
+                       end = sleep_ranges_end)
 
-# This method guarantees a zero-row tibble before adding values
-feature_tibble_long <- tibble() %>%
-  add_column(id := character(0)) %>%
-  add_column(feature := character(0)) %>%
-  add_column(used := logical(0))
+hr_data_gaps <- heartrate_src_seconds_tall %>%
+  group_by(id) %>%
+  nest() %>%
+  mutate(next_poll = map(data, ~ lead(.x$heart_rate_second))) %>%
+  mutate(gap = map(data, ~ difftime(lead(.x$heart_rate_second), .x$heart_rate_second, units = "hours"))) %>%
+  unnest(cols = c(data, next_poll, gap)) %>%
+  filter(gap >= 1)
 
-for (unique_id in unique_ids) {
-  for (j in 1:nrow(feature_usage)) {
-    feature_name <- feature_usage$feature[j]
-    id_list <- feature_usage$id_list[[j]]
-    feature_used <- FALSE
-    if (unique_id %in% id_list) {
-      cat("Found id \"",unique_id,"\" using ",feature_name,".\n",sep="")
-      feature_used <- TRUE
-    } else {
-      cat("Did not find id \"",unique_id,"\" using ",feature_name,".\n",sep="")
+get_date_range_overlap <- function(date1_stt, date1_end, date2_stt, date2_end) {
+  # Returns a percentage indicating the amount that date2 range overlaps date1 range
+  if (zGap_range_stt >= zSleep_range_end | zGap_range_end <= zSleep_range_stt) {
+    overlap <- 0
+  } else {
+    duration <- as.double(difftime(date1_end, date1_stt, units = "hours"))
+    overlap = min(1, max(0,
+                         duration
+                         - max(0, as.double(difftime(date2_stt, date1_stt)))
+                         - max(0, as.double(difftime(date1_end, date2_end)))
+                         ) / duration)
+  }
+  return(overlap)
+}
+
+for (hr_id in unique(hr_data_gaps$id)) {
+  id_gaps <- hr_data_gaps %>% filter(id == hr_id)
+  for (i in 1:nrow(sleep_ranges)) {
+    zSleep_range_stt <- sleep_ranges$stt[i]
+    zSleep_range_end <- sleep_ranges$end[i]
+    duration <- as.double(difftime(zSleep_range_end, zSleep_range_stt))
+    polling_coverage <- 1.0
+    # How much does the gap overlap the target region?
+    for (j in 1:nrow(id_gaps)) {
+      # Stop checking gaps if range is already completely covered
+      if (polling_coverage <= 0) {
+        break
+      }
+      # Ignore gaps that end before the sleep range
+      zGap_range_end = id_gaps$next_poll[j]
+      if (zGap_range_end <= zSleep_range_stt) {
+        next
+      }
+      # Skip all gaps that start after the sleep range
+      zGap_range_stt = id_gaps$heart_rate_second[j]
+      if (zGap_range_stt >= zSleep_range_end) {
+        break
+      }
+      overhang_lhs <- max(0, as.double(difftime(zGap_range_stt, zSleep_range_stt, units = "hours")))
+      overhang_rhs <- max(0, as.double(difftime(zSleep_range_end, zGap_range_end, units = "hours")))
+      overlap = min(1, max(0, duration - overhang_lhs - overhang_rhs) / duration)
+      polling_coverage <- max(0, polling_coverage - overlap)
+      cat("update polling_coverage:", polling_coverage,"\n")
     }
-    feature_tibble_long <- feature_tibble_long %>%
-      add_row(id=unique_id,feature=feature_name,used=feature_used)
+    cat("final polling_coverage:", polling_coverage,"\n")
   }
 }
 
-ggplot(feature_tibble_long, aes(x = feature, y = id, color = used)) +
-  geom_point(size = 3) +
-  scale_color_manual(values = c("TRUE" = "green", "FALSE" = "red")) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(title = "Feature Usage by ID",
-       x = "Feature",
-       y = "ID",
-       color = "Feature Used")
+# for (i in 1:nrow(sleep_ranges)) {
+#   zSleep_range_stt <- sleep_ranges$stt[i]
+#   zSleep_range_end <- sleep_ranges$end[i]
+#   sleep_duration <- as.double(difftime(zSleep_range_end, zSleep_range_stt))
+#   for (hr_id in unique(hr_data_gaps$id)) {
+#     # How much does the gap overlap the target region?
+#     id_gaps <- hr_data_gaps %>% filter(id == hr_id)
+#     for (j in 1:nrow(id_gaps)) {
+#       zGap_range_stt = id_gaps$heart_rate_second[j]
+#       zGap_range_end = id_gaps$next_poll[j]
+#       if (zGap_range_stt >= zSleep_range_end | zGap_range_end <= zSleep_range_stt) {
+#         overlap <- 0
+#       } else {
+#         overlap = min(1, max(0,
+#                              (sleep_duration
+#                               - max(0, as.double(difftime(zGap_range_stt, zSleep_range_stt)))
+#                               - max(0, as.double(difftime(zSleep_range_end, zGap_range_end)))
+#                              )) / sleep_duration)
+#       }
+#       cat("Overlap:", overlap,"\n")
+#       # if (zGap_range_end < zSleep_range_stt | zGap_range_stt > zSleep_range_end) { # No overlap
+#       #   overlap <- overlap + 0
+#       # } else if (zGap_range_stt < zSleep_range_stt & zGap_range_end <= zSleep_range_end) { # Gap overlaps LHS of sleep range
+#       #   overlap <- overlap + difftime(zSleep_range_stt, zGap_range_end)
+#       # } else if (zGap_range_stt >= zSleep_range_stt & zGap_range_end > zSleep_range_end) { # Gap overlaps RHS of sleep range
+#       #   overlap <- overlap + difftime(zGap_range_stt, zSleep_range_end)
+#       # } else { # Gap contained within sleep range
+#       #   overlap <- difftime(zGap_range_stt, zGap_range_end)
+#       # }
+#     }
+#   }
+# }
