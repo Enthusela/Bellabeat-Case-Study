@@ -1664,16 +1664,41 @@ ggplot(data = sleep_src_mins_tall_oneId) +
 Use the advertised features of the Ivy to guide the analysis
 
 ### Plotting Functions
+```{r util_functions}
+round_data_to_bin <- function(data, bin_width) {
+  rounding_factor <- 1 / bin_width
+  return(round(data * rounding_factor) / rounding_factor)
+}
+
+get_histogram_max_count <- function(data, bin_width) {
+  rounding_factor <- 1 / bin_width
+  # Round data to nearest multiple of bin_width
+  data_rounded <- round_data_to_bin(data, bin_width)
+  max_count <- max(table(data_rounded))
+  return(max_count)
+}
+
+rescale_plot <- function(p, x_min = 0, x_max = 10, x_step = 1, y_min = 0, y_max = 10, y_step = 1) {
+  p <- p +
+    scale_x_continuous(breaks = seq(x_min, x_max, by=x_step),
+                       labels = scales::comma_format(),
+                       limits=c(x_min, x_max)) +
+    scale_y_continuous(breaks = seq(y_min, y_max, by=y_step),
+                       labels = scales::comma_format(),
+                       limits=c(y_min, y_max))
+  return(p)
+}
+```
+
 
 ```{r plot_histo_pareto}
 plot_histo_pareto <- function (data, bin_width) {
   # Cumulative data uses same bins as histogram
   data <- sort(data)
-  rounding_factor <- 1 / bin_width
-  data_rounded <- round(data * rounding_factor) / rounding_factor
-
+  data_rounded <- round_data_to_bin(data, bin_width)
+  
   # Calculate highest count so axes can be adjusted
-  highest_count <- max(table(data_rounded))
+  highest_count <- get_histogram_max_count(data, bin_width)
   data_pareto <- seq(1, length(data), by = 1) / length(data) * highest_count
 
   # Calculate stats for overlay on histogram
@@ -1704,6 +1729,95 @@ plot_histo_pareto <- function (data, bin_width) {
            hjust = 1, vjust = 1, size = 4) +
     labs(x = "Value")
   
+  return(p)
+}
+```
+
+``` {r plot_time_coefficients}
+get_time_coefficients <- function(ids, timestamps, values) {
+  tbl <- tibble(
+    id = ids,
+    timestamp = timestamps,
+    value = values
+  )
+
+  coeffs <- tbl %>%
+    mutate(day_of_year = yday(timestamp)) %>%
+    group_by(id) %>%
+    summarize(correlation = cor(day_of_year, value))
+
+  return(coeffs)
+}
+
+plot_time_coefficients <- function(coeffs) {
+  bin_width <- 0.1
+  max_count <- get_histogram_max_count(coeffs$correlation, bin_width)
+  ggplot(coeffs, aes(x = correlation)) +
+    geom_histogram(binwidth = bin_width, color = "white") +
+    scale_x_continuous(breaks = seq(-1.0, 1.0, by=bin_width)) +
+    scale_y_continuous(breaks = seq(0, max_count, by=1)) +
+    labs(title = "Correlations with Time",
+         caption = "Positive values imply variable of interest generally increased over time.",
+         x = "Coefficient of Correlation",
+         y = "Count")
+}
+
+get_time_coefficients_plot <- function(ids, timestamps, values) {
+  coeffs <- get_time_coefficients(ids, timestamps, values)
+  p <- plot_time_coefficients(coeffs)
+  return(p)
+}
+```
+
+```{r plot_wide_data_to_stacked_bar}
+wide_to_stacked_bar_plot <- function(data_wide, key, value, key_order) {
+  if(!("id" %in% colnames(data_wide))) {
+    print("ERROR: data does not include \"id\" column: cannot convert.")
+  } else {
+    # Convert the data from wide to long. Set the factor levels to control the stacking order of the bars
+    data_long <- data_wide %>%
+      tidyr::gather(key = !!sym(key), value = !!sym(value), -id) %>%
+      mutate(!!sym(key) := factor(!!sym(key), levels = key_order))
+
+    # Order IDs in wide data based on value of first key, then rearrange long data.
+    # This ensures the resultant plot sorts the IDs in ascending order of the first key
+    first_key <- key_order[1]
+    data_wide <- data_wide %>% arrange(!!sym(first_key))
+    data_long$id <- factor(
+      data_long$id,
+      levels = data_wide$id)
+    
+    # Plot graph with angled ID labels
+    p <- ggplot(data_long, aes(x= id, y= !!sym(value), fill= !!sym(key))) +
+      geom_bar(stat = "identity") +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    # scale_y_continuous(breaks = seq(0, 24, by = 1))
+  }
+}
+```
+
+```{r plot_scatter_with_LOBF}
+scatter_with_LOBF <- function(data_x, data_y, labels) {
+  data <- tibble(
+    x = data_x,
+    y = data_y
+  )
+  
+  p <- ggplot(data,
+              aes(x = x, y = y)) +
+    geom_point() +
+    geom_smooth(method = "lm",
+                se = FALSE,
+                color = "blue") +
+    stat_cor(mapping=aes(label=..rr.label..),
+             method="pearson",
+             label.x=-Inf,
+             label.y=Inf,
+             hjust = -0.1,
+             vjust = 1.1) +
+    labs(title = paste(labels[1], "vs.", labels[2]),
+         x = labels[1],
+         y = labels[2])
   return(p)
 }
 ```
@@ -1813,26 +1927,8 @@ These two features are closely related, since one of the primary functions of th
 
 In order to better understand how people are using their FitBits, I analysed the amounts and intensity of different users exercise.
 
-#### TODO: Exercise Intensity
-
-Questions:
-
-* How much exercise are people doing? OR: Frequency of exercise: do those who track track often? 
-* Average intensity: are people tracking their exercises exercising very hard? Answer: it's 50/50
-* What kind of exercise are people doing?
-  * Intensity vs distance: who's outdoors, and who's at the gym?
-* Do people change their exercise habits over time?
-
-Findings:
-* All users are majority "Lightly Active" when active at all
-
-Not clear yet:
-* What level of Very Active do most users fall below?
-* When people work out, are they "Very Active"? There appears to be a mix of Fairly and Very active levels, but this is aggregated across the week and may not reflect workouts: for example, it could be the case that Fairly Active minutes accrue during the week similarly to Lightly Active minutes, whereas Very Active minutes come in bursts
-* Is "Fairly Active" more common than "Very Active"?
-
-##### How do people exercise with their FitBits?
-##### How much time do people spend exercising?
+#### How do people exercise with their FitBits?
+#### How much time do people spend exercising?
 
 I start by getting the top-level breakdown of users time vs intensity:
 
@@ -1924,7 +2020,7 @@ Findings:
 * 18% of the cohort (6 users) do more than 1 hour a week on average.
 * Most people in the dataset are not doing much more than very light exercise.
 
-##### How intensely do people exercise? 
+#### How intensely do people exercise? 
 
 Here I analyse the data to see if there is any variation in the level of intensity of exercise between users. The variation was analysed by examining the ratio of "Fairly Active" to "Very Active" time for each user:
 
@@ -1963,7 +2059,7 @@ Findings:
 * It's quite evenly spread out from around 10% Very Active to around 90% Very Active across all users, with no clear outliers.
 * It would appear that the user group engages in a range of exercise activities of varying intensity.
 
-##### Do people who track more do more-intense exercise?
+#### Do people who track more do more-intense exercise?
 
 The proportion of Active Time spent Very Active was plotted against the total Active Time to see if there was a correlation. From the earlier analysis of overall Active Hours per week, we can see that Active Hours are skewed right and concentrated towards the lower end: given this distribution, I also re-ran the analysis twice, once with the upper quintile of users removed, and once with the lower quintile removed. The results are plotted below.
 
@@ -2031,7 +2127,7 @@ Findings:
 * Removing the lower quintile increased the correlation to 0.32, indicating that those doing the most exercise are doing a narrower range of higher-intensity activities.
 * Overall, the results indicate that the majority of the cohort is engaged in a wide range of activities. There is a large subset of the group doing a low amount of varied exercise, as well as a small group of outliers doing a higher amount of more-intense exercise.
 
-##### Do people prefer to walk or run?
+#### Do people prefer to walk or run?
 
 Why do I care: If people like to run, we can market it at those people
 
@@ -2046,13 +2142,15 @@ I can use the src logs directly as they are logged every minute, so each data po
 brisk_walk_thld <- 80
 running_thld <- 110
 
-walking_times <- steps_src_mins_tall %>%
-  mutate(activity_day = yday(activity_minute)) %>%
+average_movement_times_daily <- steps_src_mins_tall %>%
+  mutate(activity_day = as.POSIXct(format(as.Date(activity_minute)))) %>%
   group_by(id, activity_day) %>%
   summarize(not_walking = sum(steps == 0) / 60,
             moderate_walking = sum(steps > 0 & steps <= brisk_walk_thld) / 60,
             brisk_walking = sum(steps > brisk_walk_thld & steps <= running_thld) / 60,
-            running = sum(steps > running_thld) / 60) %>%
+            running = sum(steps > running_thld) / 60)
+
+average_movement_times <- average_movement_times_daily %>%
   group_by(id) %>%
   summarize(not_walking = mean(not_walking),
             moderate_walking = mean(moderate_walking),
@@ -2061,16 +2159,16 @@ walking_times <- steps_src_mins_tall %>%
   arrange(running)
 
 speed_order = c("not_walking", "moderate_walking", "brisk_walking", "running")
-walking_times_long <- walking_times %>%
+average_movement_times_long <- average_movement_times %>%
   tidyr::gather(key = "speed", value = "mean_hours", -id) %>%
   mutate(speed = factor(speed, levels = speed_order))
 
-walking_times_long$id <- factor(
-  walking_times_long$id,
-  levels = walking_times$id
+average_movement_times_long$id <- factor(
+  average_movement_times_long$id,
+  levels = average_movement_times$id
 )
 
-ggplot(walking_times_long %>% filter(speed != "not_walking"),
+ggplot(average_movement_times_long %>% filter(speed != "not_walking"),
        aes(x = id, y = mean_hours, fill = speed)) +
   geom_bar(stat = "identity") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
@@ -2079,17 +2177,20 @@ ggplot(walking_times_long %>% filter(speed != "not_walking"),
        x = "User ID",
        y = "Average Daily Hours")
 
-plot_mod_walking <- plot_histo_pareto(walking_times$moderate_walking, 0.25) +
+plot_mod_walking <- plot_histo_pareto(average_movement_times$moderate_walking,
+                                      bin_width = 0.25) +
   labs(title = "Average Moderate Walking Hours per Week",
        x = "Average Hours per Week")
 print(plot_mod_walking)
 
-plot_brisk_walking <- plot_histo_pareto(walking_times$brisk_walking, 0.25) +
+plot_brisk_walking <- plot_histo_pareto(average_movement_times$brisk_walking,
+                                        bin_width = 0.25) +
   labs(title = "Average Brisk Walking Hours per Week",
        x = "Average Hours per Week")
 print(plot_brisk_walking)
 
-plot_running <- plot_histo_pareto(walking_times$running, 0.25) +
+plot_running <- plot_histo_pareto(average_movement_times$running,
+                                  bin_width = 0.25) +
   labs(title = "Average Running Hours per Week",
        x = "Average Hours per Week")
 print(plot_running)
@@ -2101,9 +2202,34 @@ Findings:
 * Brisk walking is somewhat more common, with 24 of 33 users logging between 0.25 and 0.5 hours per week
 * Runners are rare, with 30 of 33 users logging 0.25 hours or less per week, and the remaining three outliers logging between 0.5 and 1.25 hours per week
 
-##### Are people getting their steps in?
+#### Do people increase their active walking hours over time?
 
-Question: How many steps are people getting?
+```{r active_walking_over_time}
+p_mod_walking_vs_time <- get_time_coefficients_plot(average_movement_times_daily$id,
+                                                    average_movement_times_daily$activity_day,
+                                                    average_movement_times_daily$moderate_walking) +
+  labs(title = "Moderate Walking Over Time")
+
+p_brisk_walking_vs_time <- get_time_coefficients_plot(average_movement_times_daily$id,
+                                                    average_movement_times_daily$activity_day,
+                                                    average_movement_times_daily$brisk_walking) +
+  labs(title = "Brisk Walking Over Time")
+
+p_running_vs_time <- get_time_coefficients_plot(average_movement_times_daily$id,
+                                                    average_movement_times_daily$activity_day,
+                                                    average_movement_times_daily$running) +
+  labs(title = "Running Over Time")
+
+grid.arrange(p_mod_walking_vs_time, p_brisk_walking_vs_time, p_running_vs_time, ncol = 3)
+```
+
+Findings:
+
+* Most users actually decreased or did not change their walking time over the data period
+* This finding was consistent across all walking types
+* There is no evidence to suggest FitBit users increased their walknig times as a result of their FitBit device usage
+
+#### Are people getting their steps in?
 
 ```{r average_daily_step_counts}
 average_daily_steps <- steps_sum_days_tall %>%
@@ -2120,44 +2246,107 @@ Answer: Typically 7500.
 
 #### Do people increase their step counts over time?
 
-```{r steps_coefficients_inline}
-# Naive method: Graph all the steps over time
-
-ggplot(steps_sum_days_tall) +
-  geom_line(aes(x = activity_day, y = steps_total)) +
-  facet_wrap(vars(id))
-
-# Cynical method: generate all the correlations between steps and time
-
-step_count_coefficients <- steps_sum_days_tall %>%
-  mutate(day_of_year = yday(activity_day)) %>%
-  group_by(id) %>%
-  summarize(correlation = cor(day_of_year, steps_total))
-
-plot_bin_width <- 0.1
-ggplot(step_count_coefficients, aes(x = correlation)) +
-  geom_histogram(binwidth = plot_bin_width, color = "white") +
-  scale_x_continuous(breaks = seq(-1.0,1.0,by=plot_bin_width)) +
-  scale_y_continuous(breaks = seq(0,13,by=1)) +
-  labs(title = "Correlations between Step Count and Time",
-       caption = "Positive values imply Step Count generally increased over time.",
-       x = "Coefficient of Correlation",
-       y = "Users")
+```{r coefficient_with_time}
+p_steps_time_coeffs <- get_time_coefficients_plot(steps_sum_days_tall$id,
+                                                steps_sum_days_tall$activity_day,
+                                                steps_sum_days_tall$steps_total) +
+  labs(title = "Correlation between Step Counts and Time")
+print(p_steps_time_coeffs)
 ```
 
+Findings:
+* As with walking types, the majority of users actually did fewer steps over time
 
-Answer: Mostly no. The majority of users actually did fewer steps over time
-What this tells us: 
+#### Do people work out inside?
 
-* You shouldn't claim that this device encourages people to walk more.
+If people are primarily engaging in stationary exercises, e.g. on a treadmill, exercise bike, or weights station, we should see no correlation between time spent active and distance covered. We can test this idea by plotting minutes spent active against distance logged as active.
 
+```{r distance_vs_intensity}
+distance_vs_active <- activity_sum_days_wide %>%
+  select(id, activity_day,
+         distance_moderately_active,
+         distance_very_active,
+         minutes_fairly_active,
+         minutes_very_active) %>%
+  mutate(distance_active = distance_moderately_active + distance_very_active,
+         minutes_active = minutes_fairly_active + minutes_very_active) %>%
+  group_by(id) %>%
+  summarize(mean_distance_active = mean(distance_active),
+            mean_minutes_active = mean(minutes_active))
+
+p <- scatter_with_LOBF(distance_vs_active$mean_minutes_active,
+                       distance_vs_active$mean_distance_active,
+                       c("Active Minutes", "Active Distance")) +
+  labs(caption = "\"Active\" refers to time spent either Fairly or Very Active")
+print(p)
+```
+
+Findings:
+
+* Active Minutes correlate strongly with Active distance, with R^2 = 0.77. This implies people spending more time exercising are also spending more time moving.
+
+We can further analyse this trend by looking at what proportion of the overall distance people cover is Active Distance.
+
+```{r distance_intensity_pct, eval=FALSE}
+average_distances <- activity_sum_days_wide %>%
+  group_by(id) %>%
+  summarize(mean_distance = mean(distance_total))
+
+distance_vs_intensity <- activity_sum_days_wide %>%
+  group_by(id) %>%
+  summarize(mean_distance_very_active = mean(distance_very_active),
+            mean_distance_moderately_active = mean(distance_moderately_active),
+            mean_distance_lightly_active = mean(distance_lightly_active),
+            mean_distance_sedentary = mean(distance_sedentary)) %>%
+  mutate(mean_distance_total = mean_distance_very_active + 
+           mean_distance_moderately_active +
+           mean_distance_lightly_active +
+           mean_distance_sedentary) %>%
+  mutate(pct_distance_very_active = mean_distance_very_active / mean_distance_total,
+         pct_distance_moderately_active = mean_distance_moderately_active / mean_distance_total,
+         pct_distance_lightly_active = mean_distance_lightly_active / mean_distance_total,
+         pct_distance_sedentary = mean_distance_sedentary / mean_distance_total)
+
+ggplot(distance_vs_intensity, aes(x = mean_distance_total, y = pct_distance_very_active)) +
+  geom_point()
+
+distance_vs_intensity_pct <- distance_vs_intensity %>%
+  select(id,
+         pct_distance_very_active,
+         pct_distance_moderately_active,
+         pct_distance_lightly_active,
+         pct_distance_sedentary)
+stack_order <- c("pct_distance_very_active",
+                 "pct_distance_moderately_active",
+                 "pct_distance_lightly_active",
+                 "pct_distance_sedentary")
+
+# p <- wide_to_stacked_bar_plot(distance_vs_intensity_pct, "intensity", "distance", stack_order) +
+#   labs(title = "Intensity Levels as Percentage of Distance Covered")
+# print(p)
+
+histo_data <- distance_vs_intensity_pct %>%
+  select(id,
+         pct_distance_very_active,
+         pct_distance_moderately_active) %>%
+  mutate(pct_distance_active = pct_distance_very_active + pct_distance_moderately_active)
+p <- plot_histo_pareto(histo_data$pct_distance_active,
+                       bin_width = 0.1) +
+  labs(title = "Active Distance as Percentage of Total Distance")
+print(p)
+```
+
+Findings:
+
+* On average, 31% of distance covered by the cohort is Active Distance
+* Approximately one-quarter of the cohort (8, or 24%) log 50% or more of their distance as Active Distance
+* These findings support the conclusion that users are engaging in both stationary and non-stationary exercise
 
 ##### Recommendations
 
 * To appeal to the FitBit market, the marketing for the Ivy's exercise tracking should highlight a broad range of activities ranging from gentle to more intense. The marketing should not target highly-athletic groups, as these represent only a small part of the user base.
-* The marketing for 
-
-
+* The cohort does appear to engage in outdoor activities that cover long distances such as running, as opposed to stationary activities such as gym workouts, so the marketing can highlight activities like light jogging, walking dogs, and cycling
+* The marketing for the Ivy should avoid any claims that users will increase their activity levels as a result of their purchasing the device, as the data does not support this claim.
 
 ### Respiratory Rate
 
