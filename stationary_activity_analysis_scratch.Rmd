@@ -1,0 +1,128 @@
+```{r active_distance_vs_active_minutes, eval=FALSE}
+distance_per_hour <- activity_sum_days_wide %>%
+  select(id,
+         activity_day,
+         distance_moderately_active,
+         distance_very_active,
+         minutes_fairly_active,
+         minutes_very_active) %>%
+  mutate(distance_active = distance_moderately_active + distance_very_active,
+         minutes_active = minutes_fairly_active + minutes_very_active) %>%
+  mutate(distance_per_hour = distance_active / minutes_active * 60)
+
+average_distance_per_hour <- distance_per_hour %>%
+  group_by(id) %>%
+  summarize(mean_distance_per_hour = mean(distance_per_hour, na.rm = TRUE)) %>%
+  arrange(mean_distance_per_hour)
+
+distance_per_hour$id <- factor(
+  distance_per_hour$id,
+  levels = average_distance_per_hour$id
+)
+
+ggplot(distance_per_hour, aes(id, distance_per_hour)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+To address this issue, I re-ran the analysis to look at typical average Active Distances across all users:
+
+```{r total_distance, eval=FALSE}
+average_active_distances <- activity_sum_days_wide %>%
+  group_by(id) %>%
+  summarize(mean_active_distance = mean(distance_very_active + distance_moderately_active)) %>%
+  arrange(mean_active_distance)
+
+plot_histo_pareto(average_active_distances$mean_active_distance, bin_width = 1)
+```
+
+I also wanted to address the issue of outliers possibly dragging up the averages and throwing off the results. It was possible that some users were engaging in infrequent long-distance activities, so rather than looking at averages, I draw boxplots of each individual users' Active Distance per day, ordered from lowest to highest average Active Distance overall:
+* I don't think so
+* Plotting the boxplots of all users:
+
+```{r active_distance_boxplot, eval=FALSE}
+active_distances <- activity_sum_days_wide %>%
+  mutate(active_distance = distance_very_active + distance_moderately_active)
+
+active_distances$id <- factor(
+  active_distances$id,
+  levels = average_active_distances$id
+)
+
+active_HEYOH <- active_distances %>%
+  filter(id != "8877689391") %>%
+  filter(id != "8053475328")
+
+ggplot(active_distances, aes(id, active_distance)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Findings:
+
+* 78% of users (26) have 75% of their active distances < 5km
+* 94% of users (31) have 75% of their active distances < 10km
+* The lowest-distance users (median distance < 5km) have more outliers, dragging their individual averages up
+* These outliers are still within the 0 - 5 km range that the majority of the data falls within
+* One user (ID 1624580081) did actually have one particularly intense day, with a median of nearly 0 km and one day logging 26.11 km
+  
+Overall, I found that the number of outlying logs was small and tended towards the true average of the cohort, so the effect was negligible.
+
+
+We can further analyse this trend by looking at what proportion of the overall distance people cover is Active Distance.
+
+```{r distance_intensity_pct, eval=FALSE}
+average_distances <- activity_sum_days_wide %>%
+  group_by(id) %>%
+  summarize(mean_distance = mean(distance_total))
+
+distance_vs_intensity <- activity_sum_days_wide %>%
+  group_by(id) %>%
+  summarize(mean_distance_very_active = mean(distance_very_active),
+            mean_distance_moderately_active = mean(distance_moderately_active),
+            mean_distance_lightly_active = mean(distance_lightly_active),
+            mean_distance_sedentary = mean(distance_sedentary)) %>%
+  mutate(mean_distance_total = mean_distance_very_active + 
+           mean_distance_moderately_active +
+           mean_distance_lightly_active +
+           mean_distance_sedentary) %>%
+  mutate(pct_distance_very_active = mean_distance_very_active / mean_distance_total,
+         pct_distance_moderately_active = mean_distance_moderately_active / mean_distance_total,
+         pct_distance_lightly_active = mean_distance_lightly_active / mean_distance_total,
+         pct_distance_sedentary = mean_distance_sedentary / mean_distance_total)
+
+scatter_with_LOBF(distance_vs_intensity$mean_distance_total,
+                  distance_vs_intensity$pct_distance_very_active,
+                  c("Mean Distance Total", "Percent Distance Very Active"))
+
+distance_vs_intensity_pct <- distance_vs_intensity %>%
+  select(id,
+         pct_distance_very_active,
+         pct_distance_moderately_active,
+         pct_distance_lightly_active,
+         pct_distance_sedentary)
+stack_order <- c("pct_distance_very_active",
+                 "pct_distance_moderately_active",
+                 "pct_distance_lightly_active",
+                 "pct_distance_sedentary")
+
+# p <- wide_to_stacked_bar_plot(distance_vs_intensity_pct, "intensity", "distance", stack_order) +
+#   labs(title = "Intensity Levels as Percentage of Distance Covered")
+# print(p)
+
+histo_data <- distance_vs_intensity_pct %>%
+  select(id,
+         pct_distance_very_active,
+         pct_distance_moderately_active) %>%
+  mutate(pct_distance_active = pct_distance_very_active + pct_distance_moderately_active)
+p <- plot_histo_pareto(histo_data$pct_distance_active,
+                       bin_width = 0.1) +
+  labs(title = "Active Distance as Percentage of Total Distance")
+print(p)
+```
+
+Findings:
+
+* On average, 31% of distance covered by the cohort is Active Distance
+* Approximately one-quarter of the cohort (8, or 24%) log 50% or more of their distance as Active Distance
+* These findings support the conclusion that users are engaging in both stationary and non-stationary exercise
