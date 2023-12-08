@@ -1,0 +1,82 @@
+
+The first method I used to analyse night-time usage looked at the minute-by-minute heart-rate polls available on most devices. The data was analysed to determine how much of each night the user had heart-rate data logged, and therefore how long they spent with the device physically contacting their body.
+
+```{r night_usage_heartrate}
+# Find nights where enough heart-rate data was logged to imply the user slept with their FitBit on
+
+sec2hour <- 1 / 3600
+# Sleep range set to between 10pm and 6am
+sleep_range_stt_hour <- 22
+sleep_range_end_hour <- 6
+# Anything more than 60 seconds between logs is considered a removal (typical poll rate is 1-5 seconds)
+max_poll_gap_secs <- 60
+# Minimum six hours must be logged to be counted
+min_hours_logged <- 6
+nights_total <- 33
+
+nights_logged_by_user <- heartrate_src_seconds_tall %>%
+  # For logs in the AM, the night-of is set to the day before
+  mutate(night_of_yday = ifelse(hour(heart_rate_second) >= sleep_range_stt_hour, yday(heart_rate_second),
+                                ifelse(hour(heart_rate_second) < sleep_range_end_hour, yday(heart_rate_second) - 1,
+                                       NA))) %>%
+  # Only consider logs from the "sleep" range
+  filter(!is.na(night_of_yday)) %>%
+  # For each user, determine the time between polls during the night-time
+  group_by(id) %>%
+  mutate(time_since_last_poll = as.double(difftime(heart_rate_second, lag(heart_rate_second), units = "secs"))) %>%
+  # Remove any logs that are followed by too long a gap
+  filter(time_since_last_poll <= max_poll_gap_secs) %>%
+  group_by(id, night_of_yday) %>%
+  # Find the total time logged as the sum of time between valid logs
+  summarize(logged_time_hours = sum(time_since_last_poll) * sec2hour) %>%
+  # Count up the nights where each user logged sufficient time to be considered asleep with their fitbit
+  group_by(id) %>%
+  summarize(nights_logged = sum(logged_time_hours > min_hours_logged),
+            nights_logged_pct = nights_logged / nights_total)
+
+# Compare nightly usage amongst HR-users to average exercise intensity
+average_intensities <- activity_sum_days_wide %>%
+  mutate(total_active_minutes = minutes_fairly_active + minutes_very_active) %>%
+  group_by(id) %>%
+  summarize(average_active_minutes = mean(total_active_minutes))
+
+nights_logged_vs_intensity <- nights_logged_by_user %>%
+  merge(average_intensities, by = "id")
+
+ggplot(nights_logged_vs_intensity) +
+  geom_point(aes(x = average_active_minutes, y = nights_logged_pct))
+
+correlation <- cor(nights_logged_vs_intensity$average_active_minutes, 
+                   nights_logged_vs_intensity$nights_logged_pct)
+
+# Most users do not have heart-rate tracking: add their IDs back in for the final analysis
+all_ids <- unique(activity_sum_days_wide$id)
+ids_to_append <- setdiff(all_ids, nights_logged_by_user$id)
+new_rows <- data.frame(
+  id = ids_to_append,
+  nights_logged = 0,
+  nights_logged_pct = 0
+)
+nights_logged_by_user <- bind_rows(nights_logged_by_user, new_rows)
+
+plot_histo_pareto(nights_logged_by_user$nights_logged, bin_width = 1)
+
+# Plot histogram showing who logged what fraction of their nights
+plot_bin_width <- 0.25
+ggplot(nights_logged_by_user) +
+  geom_histogram(aes(x = nights_logged_pct),
+                 color = "white",
+                 binwidth = plot_bin_width) + 
+  scale_x_continuous(breaks = seq(0,1,by=plot_bin_width)) +
+  scale_y_continuous(breaks = seq(0,33,by=1)) +
+  labs(title = "Percentage of Nights Logged by Heart-rate Sensor",
+       x = "Percentage of Nights",
+       y = "Count of Users")
+```
+
+Findings:
+
+* 76% of users did not log any heartrate data overnight
+* 18% of users logged heartrate data on a majority of nights
+* Amongst users with heart-rate logging, there was only a loose relationship between average intensity of activity and nightly logging (R^2 = 0.213), so I can't say with confidence that people tracking overnight are more exercise-conscious
+* There's no clear reason from the data alone why people are not wearing their FitBits overnight

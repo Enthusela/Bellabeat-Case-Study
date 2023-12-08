@@ -1832,7 +1832,7 @@ scatter_with_LOBF <- function(data_x, data_y, labels = NULL) {
 ```
 
 
-### Heart Rate Tracking and Activity Tracking
+### TODO: Heart Rate Tracking and Activity Tracking
 
 * Heart-rate Tracking: "Use it to track your workout progress and optimize personal training routines."
 * Exercise Tracking: "Ivy will recognize your activity during the day, help you track up to 80 types of activity, count your steps, and discover how all that affects your body."
@@ -2215,7 +2215,8 @@ Overall, based on the strong correlation between Active Time and Active distance
 * The marketing for the Ivy should avoid any claims that users will increase their activity levels as a result of their purchasing the device, as the data does not support this claim.
 * The cohort does appear to engage in outdoor activities that cover long distances such as running, as opposed to stationary activities such as gym workouts, so the marketing can highlight activities like light jogging, walking dogs, and cycling
 
-### Sleep Tracking
+#### TODO: Recommendations
+### TODO: Sleep Tracking
 
 "Ivy monitors your sleep patterns and knows exactly how your night is going to affect the next day."
 
@@ -2223,26 +2224,48 @@ Overall, based on the strong correlation between Active Time and Active distance
 * Check if volume or quality of sleep improved
 * From the Surge Manual: [wearing your tracker 24/7 does not allow your skin to breathe](https://myhelp.fitbit.com/resource/manual_surge_en_US): This may be part of the reason people don't track overnight, and needs to be considered when marketing the features that require overnight wear
 
-### Point-of-difference Features
+### TODO: Resting Heart Rate and Cardiac Coherence
 
-#### Respiratory Rate
+TODO: Re-implement my heart-rate log tracking here to determine how much daytime/nighttime logging is being done
 
-"How you breathe says a lot about your mind and body."
-* Point-of-difference feature
-* I don't believe the FitBit has anything for this, so look for a proxy
-* Blaze has it, but not the other two
-* Nothing in the data
+Although the FitBits in the data set do have heart rate and breathing rate tracking, there is no data for resting heart rate or cardiac coherence specifically. What I can analyse is the data on heart-rate tracking generally, specifically:
 
-Recommendations:
+* How often do people track their heart-rates, either during the day or during the night?
+* When people do track their heart-rates, what level of activity are they engaged in? I.e. are they only putting their trackers on to exercise, or do they wear them during lower-activity or sedentary periods?
 
-#### Resting Heart Rate
+This will help me understand whether or not the RHR and CC functions will appeal to the user base: for instance, users who rarely wear their existing heart-rate monitors, or only wear them during intense exercise, are perhaps less likely to care about their longer-term cardiac performance.
 
+While I could analyse the heart-rate monitor data directly, the activity_sum_days_wide data frame has done a lot of the work for me already: The Intensity data in the table is based on heart-rate zones, so any minutes logged in that data frame are minutes where the user had their heart-rate monitor on.
 
-* Point-of-difference feature
-  * Especially if people *aren't* wearing their devices at night
-  * And they aren't
+First question is how often people track their heart-rate:
+
+```{r overall_heart_rate_tracking}
+heart_rate_minutes <- activity_sum_days_wide %>%
+  select(id,
+         minutes_sedentary,
+         minutes_lightly_active,
+         minutes_fairly_active,
+         minutes_very_active) %>%
+  mutate(total_hours = (minutes_sedentary +
+           minutes_lightly_active +
+           minutes_fairly_active +
+           minutes_very_active) / 60) %>%
+  group_by(id) %>%
+  summarize(mean_total_hours = mean(total_hours))
+
+plot_histo_pareto(heart_rate_minutes$mean_total_hours, bin_width = 1)
+```
+
+Findings:
+
+* A majority of users (54% or 18 users) log 22 to 24 hours a day on average
+* The remaining 46% of users log between 15 and 19 hours per day
+* We know from previous analysis of sleep logs that most users do not log overnight
+
+* Actually, this kind of contradicts that, hey
+* I'll figure it out tomorrow, it's getting dark and a bit shit up here
   
-#### Readiness Score
+### Readiness Score
 
 Subtitle: "Includes Resting Heart Rate, Respiratory Rate, and Cardiac Coherence functions"
 
@@ -2252,13 +2275,13 @@ Description:
 * "Resting heart rate (RHR) is the number of heartbeats per minute, measured when the body is fully calm during the night."
 * "The cardiac coherence parameter shows how your heart rate variability and breathing rate are synchronized."
 
-The Readiness Score is one of several features of the Ivy that can be marketed as a value-add over the FitBit devices in the data set. The feature makes use of several functions of the device, some of which the FitBits in the data set do not have, and builds on other features already available, like Respiratory rate and Resting Heart Rate
+The Readiness Score is one of several features of the Ivy that can be marketed as a value-add over the FitBit devices in the data set. The feature makes use of several functions of the device, some of which the FitBits in the data set do not have, and builds on other features already available, like Respiratory Rate and Resting Heart Rate
 
-The FitBit devices in the dataset don't log any direct equivalent to the Readiness Score, nor does the documentation for the devices describe any comporable feature. 
+The FitBit devices in the dataset don't log any direct equivalent to the Readiness Score, nor does the documentation for the devices describe any comparable feature. 
 
-While the Blaze does have a breathing-detection function, it does not appear to be tracked over time in the data, and the Blaze manual describes it used only for "Guided Breathing" activities, which only track respiratory rate during the activity.
+While the Blaze does have a breathing-detection function, it does not appear to be tracked over time in the data, and the Blaze manual describes it used only for "Guided Breathing" activities, which track respiratory rate only during the activity.
 
-The surge also mentions that ("Wearing your Surge while you sleep has the added benefit of making the
+The Surge manual also mentions that ("Wearing your Surge while you sleep has the added benefit of making the
 Resting Heart Rate measurements on your dashboard more accurate")[https://myhelp.fitbit.com/resource/manual_surge_en_US], so it appears to have that feature as well, but it is not built into an overall "Readiness Score"
 
 This makes a potentially valuable function of the device, but also makes it difficult to investigate the existing data for evidence of how users might make use of this feature.
@@ -2269,149 +2292,62 @@ One aspect we can analyse is whether or not users currently wear their devices t
 
 Nighttime usage of FitBits is particularly relevant to the Readiness Score, as that function does not work unless the user wears their device to bed. If people are already frequently wearing their devices to bed, then the marketing can leverage this tendency to push the feature as an improvement on existing features. Conversely, if users are not wearing their devices overnight, this may indicate that users are not interested in existing overnight-monitoring functions, or that there are other factors that make overnight wear unappealing, which marketing teams will need to take into account.
 
-The first method I used to analyse night-time usage looked at the minute-by-minute heart-rate polls available on most devices. The data was analysed to determine how much of each night the user had heart-rate data logged, and therefore how long they spent with the device physically contacting their body.
-
-```{r night_usage_heartrate}
-# Find nights where enough heart-rate data was logged to imply the user slept with their FitBit on
-
-sec2hour <- 1 / 3600
-# Sleep range set to between 10pm and 6am
-sleep_range_stt_hour <- 22
-sleep_range_end_hour <- 6
-# Anything more than 60 seconds between logs is considered a removal (typical poll rate is 1-5 seconds)
-max_poll_gap_secs <- 60
-# Minimum six hours must be logged to be counted
-min_hours_logged <- 6
-nights_total <- 33
-
-nights_logged_by_user <- heartrate_src_seconds_tall %>%
-  # For logs in the AM, the night-of is set to the day before
-  mutate(night_of_yday = ifelse(hour(heart_rate_second) >= sleep_range_stt_hour, yday(heart_rate_second),
-                                ifelse(hour(heart_rate_second) < sleep_range_end_hour, yday(heart_rate_second) - 1,
-                                       NA))) %>%
-  # Only consider logs from the "sleep" range
-  filter(!is.na(night_of_yday)) %>%
-  # For each user, determine the time between polls during the night-time
-  group_by(id) %>%
-  mutate(time_since_last_poll = as.double(difftime(heart_rate_second, lag(heart_rate_second), units = "secs"))) %>%
-  # Remove any logs that are followed by too long a gap
-  filter(time_since_last_poll <= max_poll_gap_secs) %>%
-  group_by(id, night_of_yday) %>%
-  # Find the total time logged as the sum of time between valid logs
-  summarize(logged_time_hours = sum(time_since_last_poll) * sec2hour) %>%
-  # Count up the nights where each user logged sufficient time to be considered asleep with their fitbit
-  group_by(id) %>%
-  summarize(nights_logged = sum(logged_time_hours > min_hours_logged),
-            nights_logged_pct = nights_logged / nights_total)
-
-# Compare nightly usage amongst HR-users to average exercise intensity
-average_intensities <- activity_sum_days_wide %>%
-  mutate(total_active_minutes = minutes_fairly_active + minutes_very_active) %>%
-  group_by(id) %>%
-  summarize(average_active_minutes = mean(total_active_minutes))
-
-nights_logged_vs_intensity <- nights_logged_by_user %>%
-  merge(average_intensities, by = "id")
-
-ggplot(nights_logged_vs_intensity) +
-  geom_point(aes(x = average_active_minutes, y = nights_logged_pct))
-
-correlation <- cor(nights_logged_vs_intensity$average_active_minutes, 
-                   nights_logged_vs_intensity$nights_logged_pct)
-
-# Most users do not have heart-rate tracking: add their IDs back in for the final analysis
-all_ids <- unique(activity_sum_days_wide$id)
-ids_to_append <- setdiff(all_ids, nights_logged_by_user$id)
-new_rows <- data.frame(
-  id = ids_to_append,
-  nights_logged = 0,
-  nights_logged_pct = 0
-)
-nights_logged_by_user <- bind_rows(nights_logged_by_user, new_rows)
-
-# Plot histogram showing who logged what fraction of their nights
-plot_bin_width <- 0.25
-ggplot(nights_logged_by_user) +
-  geom_histogram(aes(x = nights_logged_pct),
-                 color = "white",
-                 binwidth = plot_bin_width) + 
-  scale_x_continuous(breaks = seq(0,1,by=plot_bin_width)) +
-  scale_y_continuous(breaks = seq(0,33,by=1)) +
-  labs(title = "Percentage of Nights Logged by Heart-rate Sensor",
-       x = "Percentage of Nights",
-       y = "Count of Users")
-```
-
-Findings:
-
-* 76% of users did not log any heartrate data overnight
-* 18% of users logged heartrate data on a majority of nights
-* Amongst users with heart-rate logging, there was only a loose relationship between average intensity of activity and nightly logging (R^2 = 0.213), so I can't say with confidence that people tracking overnight are more exercise-conscious
-* There's no clear reason from the data alone why people are not wearing their FitBits overnight
-* From the Surge Manual: [wearing your tracker 24/7 does not allow your skin to breathe](https://myhelp.fitbit.com/resource/manual_surge_en_US): this appears to be an issue with any device that makes use of a silicone watch strap
-
-The second method I used to analyse night-time usage used the sleep logs.
+The data set contains sleep logs for 24 of the 33 users, which I considered a large enough sample (72%) to use for analysis. For each user, I calculated the number of nights where the total sleep time logged was greater than 6 hours: this value was picked as being close enough to the recommended 8 hours of sleep to indicate the user did actually go to bed with their device on, but not so high that it would not pick up data from users who don't get a full night's sleep.
 
 ```{r sleep_log_analysis}
-sleep_stats <- sleep_sum_days_wide %>%
+hours_asleep <- 6
+total_nights <- 33
+sleep_counts <- sleep_sum_days_wide %>%
   group_by(id) %>%
-  summarize(mean_hours_asleep = mean(minutes_asleep_total) / 60,
-            mean_hours_in_bed = mean(minutes_in_bed_total) / 60)
-plot_histo_pareto(sleep_stats$mean_hours_asleep, bin_width = 1) +
-  labs(title = "Mean Hours Asleep")
-plot_histo_pareto(sleep_stats$mean_hours_in_bed, bin_width = 1) +
-  labs(title = "Mean Hours In Bed")
+  summarize(count_logged_asleep = sum(minutes_asleep_total / 60 > hours_asleep),
+            count_logged_in_bed = sum(minutes_in_bed_total / 60 > hours_asleep),
+            pct_logged_asleep = count_logged_asleep / total_nights,
+            pct_logged_in_bed = count_logged_in_bed / total_nights)
+
+plot_histo_pareto(sleep_counts$pct_logged_asleep, bin_width = 0.1) +
+  labs(title = "Count of Nights Logged Asleep")
+plot_histo_pareto(sleep_counts$pct_logged_in_bed, bin_width = 0.1) +
+  labs(title = "Count of Nights Logged In Bed")
+
+ggplot(sleep_counts) +
+  geom_boxplot(aes(y = pct_logged_asleep)) + 
+  scale_y_continuous(breaks = seq(0, 33, by = 0.1))
+
 ```
 
 Findings:
 
-* 
+* Frequency of sleep logging varied considerably across the user group
+* 27% of users (9) logging sleep on 20% of nights or less: including the nine users that did not log any sleep records, this figure jumps to 54% (18 users).
+* 30% of users logged sleep on 70% of nights or more
+* The FitBit devices available at the time the dataset was recorded all have sleep-tracking functionality, so these findings indicate that the majority of users are not making use of this function.
+* One possible reason for this is indicated by the manual for the FitBit Surge, which informs the user that "[wearing your tracker 24/7 does not allow your skin to breathe](https://myhelp.fitbit.com/resource/manual_surge_en_US)". The FitBit surge uses a silicon strap, similar to the Bellabeat Ivy
 
-Recommendations:
+#### Recommendations
 
-* Most people who have heart-rate tracking don't sleep with their FitBits on. This makes sense given there doesn't appear to be any use for the heart-rate data while a person is sleeping: it's mainly used to enable exercise intensity tracking
-* The Readiness Score can be marketed as a value-add feature that does more with the heart-rate data than competing products
-* Given the feature requires people to wear the device overnight, it would be worthwhile to try to gather more information about why people don't already do this. For users without a device with heart-rate tracking this makes sense, but for those who do have it, the reason for not using it may be negative, e.g. the device is not comfortable, the strap causes irritation, etc. Understanding these reasons would help target the advertising further.
-* The non-allergenic materials used in the Ivy can be used to highlight the comfort aspects of the device when marketing features that require overnight wearing.
-
-
-
-
+* The Readiness Score can be marketed as a value-add feature that produces more useful information when worn to bed than competing products
+* The non-allergenic materials used in the Ivy should be used to highlight the comfort aspects of the device when marketing features that require overnight wearing, as discomfort from overnight wear may be one of the factors contributing to the low utilisation of sleep logging in existing products.
 
 
-#### Cardiac Coherence
+### Features without Data
 
+Several functions and features of the Ivy are not present on the FitBits in the data set. These features include:
 
+* Cardiac Coherence tracking
+* Resting Heart Rate
+* Respiratory Rate
+* Hydration tracking
+* Mindfulness Minute Tracking
+* Menstrual Cycle
+* Wellness Score
 
-* Point-of-difference feature
+Given the lack of data, it's not possible to directly analyse existing user behaviours with respect to these features.
 
+#### Recommendations
 
-#### Hydration
+* These features can all be marketed as improvements and additions over the functionality of existing FitBits.
+* As discussed with regards to the Readiness score, marketing for any feature that requires overnight wear, like the Cardiac Coherence tracking, should take into account the low utilisation of existing overnight functions like sleep tracking seen in the existing data.
 
-"Know how much you really drink and set water reminders. Also, factor in your unique physique, activity levels, age, height, and weight to calculate the right amount of water for your body."
-
-* Point-of-difference feature
-* That last part about "factor in your unique physique" may be more or less important to people, and that would be evidenced by how many people used bodycomp features
-* No direct data to analyse existing usage for this kind of feature
-
-#### Mindfulness
-
-"Ivy helps you keep track of your mindful minutes and get insight into how much your meditative, breathing, or similar practices affect your psycho-physical well-being."
-
-* Point-of-difference feature
-* If there is a proxy for breathing, maybe I can determine if people are meditating with their fitbits, although that seems like a stretch
-
-#### Menstrual Cycle
-
-"Ivy helps you tune in with your body’s rhythm and track your period, ovulation, pregnancy, or birth control. Monitor your changes in the menstrual cycle, log symptoms, and even predict issues before they appear."
-
-* Point-of-difference feature
-
-#### Wellness Score
-
-"Ivy monitors your activity, sleep, meditation, menstrual cycle, and hydration log..."
-
-* Point-of-difference feature
 
 # TODO Step 5: Share
 
