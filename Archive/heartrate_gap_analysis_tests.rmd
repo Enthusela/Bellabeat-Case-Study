@@ -1,0 +1,81 @@
+
+This approach was verified manually by examining each users data individually, with the color of datapoints indicating when they fell within the pre-defined night-time range:
+
+```{r heart_rate_naive_viz_iter, eval=FALSE}
+unique_ids <- unique(heartrate_src_seconds_tall$id)
+
+data <- heartrate_src_seconds_tall %>%
+  filter(id == "8877689391",
+         yday(heart_rate_second) >= 107,
+         yday(heart_rate_second) < 109) %>%
+  mutate(is_nighttime = hour(heart_rate_second) >= 22 | hour(heart_rate_second) < 6)
+
+min_date <- as.Date(min(data$heart_rate_second), tz = "UTC")
+min_date_midnight <- as.POSIXct(paste(min_date, "00:00:00"), tz = "UTC")
+print(min_date_midnight)
+
+max_date <- as.Date(max(data$heart_rate_second), tz = "UTC")
+max_date_midnight <- as.POSIXct(paste(max_date, "23:59:59"), tz = "UTC")
+print(max_date_midnight)
+
+p <- ggplot(data) +
+    geom_point(aes(x = heart_rate_second,
+                   y = heart_rate,
+                   color = is_nighttime),
+               shape = 3,
+               size = 0.1) +
+    scale_x_datetime(breaks = seq(min_date_midnight,
+                                  max_date_midnight,
+                                  by = "1 hours"),
+                     labels = function(x) strftime(x, "%Y-%m-%d %H:%M:%S", tz = "UTC"),
+                     timezone = "UTC") +
+    theme(axis.text.x=element_text(angle=45, hjust=1)) +
+    labs(title = paste("Heart Rate Data: ", "8877689391"))
+print(p)
+
+for (hr_id in unique_ids) {
+  print(hr_id)
+
+  data <- heartrate_src_seconds_tall %>%
+    filter(id == hr_id) %>%
+    mutate(is_nighttime = hour(heart_rate_second) >= 22 | hour(heart_rate_second) < 6)
+
+  min_date <- as.Date(min(data$heart_rate_second), tz = "UTC")
+  min_date_midnight <- as.POSIXct(paste(min_date, "00:00:00"), tz = "UTC")
+  print(min_date_midnight)
+
+  max_date <- as.Date(max(data$heart_rate_second), tz = "UTC")
+  max_date_midnight <- as.POSIXct(paste(max_date, "23:59:59"), tz = "UTC")
+  print(max_date_midnight)
+
+  p <- ggplot(data) +
+    geom_point(aes(x = heart_rate_second,
+                   y = heart_rate,
+                   color = is_nighttime),
+               shape = 3,
+               size = 0.1) +
+    scale_x_datetime(breaks = seq(min_date_midnight,
+                                  max_date_midnight,
+                                  by = "6 hours"),
+                     labels = function(x) strftime(x, "%Y-%m-%d %H:%M:%S", tz = "UTC"),
+                     timezone = "UTC") +
+    theme(axis.text.x=element_text(angle=45, hjust=1)) +
+    labs(title = paste("Heart Rate Data: ", hr_id))
+  print(p)
+}
+```
+
+2022484408: Correct
+2026352035: Correct
+2347167796: Correct
+4020332650: Correct, might have missed 3 of 8
+4388161847: Correct, might have missed 1 of 21
+4558609924: Correct
+5553957443: Correct, might have missed 2 of 30
+5577150313: Correct, might have missed 1 of 24
+6117666160: Correct
+6775888955: Correct
+6962181067: Correct, might have missed 2 of 31
+7007744171: Correct
+8792009665: Correct
+8877689391: Correct, might have missed 1 of 1

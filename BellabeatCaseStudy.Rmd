@@ -97,7 +97,7 @@ print("Loading packages complete.")
 ```{r set_dir, include=FALSE}
 # Set the working directory of the R markdown environment to match that of the console
 # Omitted from report: for working on my laptop specifically
-dir <- "/Users/nathanweaver/Library/CloudStorage/OneDrive-Personal/Documents/Professional/Google Data Cert/Course 8 - Capstone Project/Bellabeat Case Study"
+dir <- "/Users/nathanweaver/Documents/GitHub/Bellabeat Case Study"
 setwd(dir)
 cat("Set working directory to:", dir, "\n")
 ```
@@ -1752,10 +1752,24 @@ get_time_coefficients <- function(ids, timestamps, values) {
 plot_time_coefficients <- function(coeffs) {
   bin_width <- 0.1
   max_count <- get_histogram_max_count(coeffs$correlation, bin_width)
+  
+  coeffs_mean <- round(mean(coeffs$correlation, na.rm = TRUE), digits = 2)
+  coeffs_median <- round(median(coeffs$correlation, na.rm = TRUE), digits = 2)
+  sum_stats <- data.frame(Statistics = c("Mean", "Median"),
+                          value = c(coeffs_mean, coeffs_median))
+  label_text <- paste("Mean =", coeffs_mean, "\nMedian =", coeffs_median)
+  
   ggplot(coeffs, aes(x = correlation)) +
     geom_histogram(binwidth = bin_width, color = "white") +
+    geom_vline(data = sum_stats,
+               aes(xintercept = value,
+                   linetype = Statistics,
+                   color = Statistics),
+               size = 1) +
     scale_x_continuous(breaks = seq(-1.0, 1.0, by=bin_width)) +
     scale_y_continuous(breaks = seq(0, max_count, by=1)) +
+    annotate("text", x = Inf, y = Inf, label = label_text,
+           hjust = 1, vjust = 1, size = 4) +
     labs(title = "Correlations with Time",
          caption = "Positive values imply variable of interest generally increased over time.",
          x = "Coefficient of Correlation",
@@ -1832,19 +1846,19 @@ scatter_with_LOBF <- function(data_x, data_y, labels = NULL) {
 ```
 
 
-### TODO: Heart Rate Tracking and Activity Tracking
+### Heart Rate Tracking, Activity Tracking, and Step Counts
 
 * Heart-rate Tracking: "Use it to track your workout progress and optimize personal training routines."
 * Exercise Tracking: "Ivy will recognize your activity during the day, help you track up to 80 types of activity, count your steps, and discover how all that affects your body."
+* Step Counts
 
 * Do people count their steps? Yeah, all but three of them did
 * Do people engage in different types of activity? Yeah, big spread of Fairly/Very Active intensity levels, safe to say people don't all work out the same, so the more activity tracking the merrier
 
-These two features are closely related, since one of the primary functions of the HR tracking is to detect exercise intensity. Step count and distance covered can also be used to further analyse users' activity.
+These three features are closely related, since one of the primary functions of the HR tracking is to detect exercise intensity; steps and distance tracking can also be used to further analyse users' activity.
 
 In order to better understand how people are using their FitBits, I analysed the amounts and intensity of different users exercise.
 
-#### How do people exercise with their FitBits?
 #### How much time do people spend exercising?
 
 I start by getting the top-level breakdown of users time vs intensity:
@@ -1969,6 +1983,8 @@ ggplot(mean_daily_intensities_long, aes(x= id, y= mean_hours, fill= intensity)) 
   labs(title="Proportion of Average Time by Intensity Zone",
        x = "User ID",
        y = "Average Daily Time (%)")
+
+plot_histo_pareto()
 ```
 
 Findings: 
@@ -2209,62 +2225,12 @@ Findings:
 
 Overall, based on the strong correlation between Active Time and Active distance, and the scale of the distances covered by active users, it would appear that the cohort engages in a variety of mobile exercise activities. The exact breakdown of mobile vs. stationary activities has not been determined, but I believe it is safe to say that the marketing for the Ivy should represent mobile and outdoor activities more strongly over indoor, gym-based, or other stationary activities.
 
-##### Recommendations
+#### Recommendations
 
 * To appeal to the FitBit market, the marketing for the Ivy's exercise tracking should highlight a broad range of activities ranging from gentle to more intense. The marketing should not target highly-athletic groups, as these represent only a small part of the user base.
-* The marketing for the Ivy should avoid any claims that users will increase their activity levels as a result of their purchasing the device, as the data does not support this claim.
+* The marketing for the Ivy should avoid any claims that users will increase their activity levels or their step counts as a result of their purchasing the device, as the data does not support this claim.
 * The cohort does appear to engage in outdoor activities that cover long distances such as running, as opposed to stationary activities such as gym workouts, so the marketing can highlight activities like light jogging, walking dogs, and cycling
 
-#### TODO: Recommendations
-### TODO: Sleep Tracking
-
-"Ivy monitors your sleep patterns and knows exactly how your night is going to affect the next day."
-
-* Again, first off is just how many people used the sleep-tracking feature
-* Check if volume or quality of sleep improved
-* From the Surge Manual: [wearing your tracker 24/7 does not allow your skin to breathe](https://myhelp.fitbit.com/resource/manual_surge_en_US): This may be part of the reason people don't track overnight, and needs to be considered when marketing the features that require overnight wear
-
-### TODO: Resting Heart Rate and Cardiac Coherence
-
-TODO: Re-implement my heart-rate log tracking here to determine how much daytime/nighttime logging is being done
-
-Although the FitBits in the data set do have heart rate and breathing rate tracking, there is no data for resting heart rate or cardiac coherence specifically. What I can analyse is the data on heart-rate tracking generally, specifically:
-
-* How often do people track their heart-rates, either during the day or during the night?
-* When people do track their heart-rates, what level of activity are they engaged in? I.e. are they only putting their trackers on to exercise, or do they wear them during lower-activity or sedentary periods?
-
-This will help me understand whether or not the RHR and CC functions will appeal to the user base: for instance, users who rarely wear their existing heart-rate monitors, or only wear them during intense exercise, are perhaps less likely to care about their longer-term cardiac performance.
-
-While I could analyse the heart-rate monitor data directly, the activity_sum_days_wide data frame has done a lot of the work for me already: The Intensity data in the table is based on heart-rate zones, so any minutes logged in that data frame are minutes where the user had their heart-rate monitor on.
-
-First question is how often people track their heart-rate:
-
-```{r overall_heart_rate_tracking}
-heart_rate_minutes <- activity_sum_days_wide %>%
-  select(id,
-         minutes_sedentary,
-         minutes_lightly_active,
-         minutes_fairly_active,
-         minutes_very_active) %>%
-  mutate(total_hours = (minutes_sedentary +
-           minutes_lightly_active +
-           minutes_fairly_active +
-           minutes_very_active) / 60) %>%
-  group_by(id) %>%
-  summarize(mean_total_hours = mean(total_hours))
-
-plot_histo_pareto(heart_rate_minutes$mean_total_hours, bin_width = 1)
-```
-
-Findings:
-
-* A majority of users (54% or 18 users) log 22 to 24 hours a day on average
-* The remaining 46% of users log between 15 and 19 hours per day
-* We know from previous analysis of sleep logs that most users do not log overnight
-
-* Actually, this kind of contradicts that, hey
-* I'll figure it out tomorrow, it's getting dark and a bit shit up here
-  
 ### Readiness Score
 
 Subtitle: "Includes Resting Heart Rate, Respiratory Rate, and Cardiac Coherence functions"
@@ -2290,58 +2256,484 @@ One aspect we can analyse is whether or not users currently wear their devices t
 
 #### Analysis: Do people sleep with their FitBits on?
 
-Nighttime usage of FitBits is particularly relevant to the Readiness Score, as that function does not work unless the user wears their device to bed. If people are already frequently wearing their devices to bed, then the marketing can leverage this tendency to push the feature as an improvement on existing features. Conversely, if users are not wearing their devices overnight, this may indicate that users are not interested in existing overnight-monitoring functions, or that there are other factors that make overnight wear unappealing, which marketing teams will need to take into account.
+Nighttime usage of FitBits is particularly relevant to the Readiness Score, as that function does not work unless the user wears their device to bed. If people are already frequently wearing their devices to bed, then the marketing can leverage this tendency to push the feature as an improvement on existing features. On the other hand, if users are not wearing their devices overnight, this may indicate that users are not interested in existing overnight-monitoring functions, or that there are other factors that make overnight wear unappealing, which marketing teams will need to take into account.
 
-The data set contains sleep logs for 24 of the 33 users, which I considered a large enough sample (72%) to use for analysis. For each user, I calculated the number of nights where the total sleep time logged was greater than 6 hours: this value was picked as being close enough to the recommended 8 hours of sleep to indicate the user did actually go to bed with their device on, but not so high that it would not pick up data from users who don't get a full night's sleep.
+##### Which models can tell when the user is sleeping?
 
-```{r sleep_log_analysis}
+As of April 2016, the following wristband FitBits were available:
+
+| Model           | Sleep Logging | Heart-rate Tracking | Source |
+|:----------------|:-------------:|:-------------------:|:-------|
+| Alta            | Yes           | No                  | [User Manual](https://www.fitbit.com/content/assets/help/manuals/manual_alta_en_US.pdf) |
+| Blaze           | Yes           | Yes                 | [User Manual](https://staticcs.fitbit.com/content/assets/help/manuals/manual_blaze_en_US.pdf) |
+| Charge          | Yes           | No                  | [User Manual](https://staticcs.fitbit.com/content/assets/help/manuals/manual_charge_en_US.pdf) |
+| Charge HR       | Yes           | Yes                 | [User Manual](https://staticcs.fitbit.com/content/assets/help/manuals/manual_charge_hr_en_US.pdf) |
+| Flex 1          | Yes           | No                  | [User Manual](https://help.fitbit.com/manuals/manual_flex_en_US.pdf) |
+| Flex 2          | Yes           | No                  | [User Manual](https://help.fitbit.com/manuals/manual_flex_2_en_US.pdf) |
+| Surge           | Yes           | Yes                 | [User Manual](https://myhelp.fitbit.com/resource/manual_surge_en_US) |
+
+Implications:
+
+* Sleep logging is available on all devices, so sleep log data should indicate how the overall cohort uses this feature
+* Heart-rate logging is limited to later devices, so heartrate data will only indicate how that subset of the cohort uses that feature
+
+##### Sleep Logs Analysis
+
+For each user, I calculated the number of nights where the total sleep time logged was greater than 6 hours: this value was picked as being close enough to the recommended 8 hours of sleep to indicate the user did actually go to bed with their device on, but not so high that it would not pick up data from users who don't get a full night's sleep.
+
+```{r analyse_night_usage_sleep_logs}
 hours_asleep <- 6
 total_nights <- 33
-sleep_counts <- sleep_sum_days_wide %>%
+nights_logged_by_sleep_log <- sleep_sum_days_wide %>%
   group_by(id) %>%
   summarize(count_logged_asleep = sum(minutes_asleep_total / 60 > hours_asleep),
             count_logged_in_bed = sum(minutes_in_bed_total / 60 > hours_asleep),
             pct_logged_asleep = count_logged_asleep / total_nights,
             pct_logged_in_bed = count_logged_in_bed / total_nights)
 
-plot_histo_pareto(sleep_counts$pct_logged_asleep, bin_width = 0.1) +
-  labs(title = "Count of Nights Logged Asleep")
-plot_histo_pareto(sleep_counts$pct_logged_in_bed, bin_width = 0.1) +
-  labs(title = "Count of Nights Logged In Bed")
+plot_histo_pareto(nights_logged_by_sleep_log$pct_logged_in_bed, bin_width = 0.05) +
+  labs(title = "Percentage of Nights Logged In Bed - Logged Users Only",
+       subtitle = "Source: Sleep Log Data")
 
-ggplot(sleep_counts) +
-  geom_boxplot(aes(y = pct_logged_asleep)) + 
-  scale_y_continuous(breaks = seq(0, 33, by = 0.1))
+# Add missing ID values to the dataset to analyse the full cohort
+missing_ids <- setdiff(unique(activity_sum_days_wide$id), nights_logged_by_sleep_log$id)
+for (id in missing_ids) {
+  nights_logged_by_sleep_log <- nights_logged_by_sleep_log %>%
+    rbind(.,data.frame(
+          id = id,
+          count_logged_asleep = 0,
+          count_logged_in_bed = 0,
+          pct_logged_asleep = 0.0,
+          pct_logged_in_bed = 0.0))
+}
 
+plot_histo_pareto(nights_logged_by_sleep_log$pct_logged_in_bed, bin_width = 0.05) +
+  labs(title = "Percentage of Nights Logged In Bed - All Users",
+       subtitle = "Source: Sleep Log Data")
 ```
 
 Findings:
 
-* Frequency of sleep logging varied considerably across the user group
-* 27% of users (9) logging sleep on 20% of nights or less: including the nine users that did not log any sleep records, this figure jumps to 54% (18 users).
-* 30% of users logged sleep on 70% of nights or more
-* The FitBit devices available at the time the dataset was recorded all have sleep-tracking functionality, so these findings indicate that the majority of users are not making use of this function.
-* One possible reason for this is indicated by the manual for the FitBit Surge, which informs the user that "[wearing your tracker 24/7 does not allow your skin to breathe](https://myhelp.fitbit.com/resource/manual_surge_en_US)". The FitBit surge uses a silicon strap, similar to the Bellabeat Ivy
+* Out of all users in the data set, very few users are logging, with 36% (12 users) logging between 0% and 5% of nights, and a majority of 51% (17 users) logging 10% of nights or fewer
+* Out of users with sleep log data, the results are more evenly spread, with 37% (9 users) logging 0% to 15% of nights, and another 42% (10 users) logging 70% to 90% of nights.
+
+Given that the FitBit devices available at the time the dataset was recorded all have sleep-tracking functionality, these findings indicate that the majority of users are not making use of this function. One possible reason for this is indicated by the manual for the FitBit Surge, which informs the user that ["wearing your tracker 24/7 does not allow your skin to breathe"](https://myhelp.fitbit.com/resource/manual_surge_en_US)
+
+##### Heart-rate Analysis
+
+The sleep logs data gives a good indication of whether users are interested in sleep logging data, but it doesn't directly confirm whether people are wearing their devices to bed. To investigate this, I also analysed the heart-rate data for each user. This is by far the largest and least-processed data set, but it has the advantage of only generating data if the device is physically contacting the user.
+
+Taking the brute-force approach to plotting the data for each user makes it much easier to visualise the patterns in user behaviour:
+
+```{r viz_all_heartrate_data}
+data <- heartrate_src_seconds_tall %>%
+    mutate(is_nighttime = hour(heart_rate_second) >= 22 | hour(heart_rate_second) < 6)
+p <- ggplot(data) +
+  geom_point(aes(x = heart_rate_second,
+                 y = heart_rate,
+                 color = is_nighttime),
+             size = 0.1,
+             shape = 3) +
+  facet_wrap(vars(id))
+
+ggsave("viz_all_heartrate_data.png",
+       plot = p,
+       device = "png",
+       width = 3840,
+       height = 2160,
+       units = "px")
+```
+
+Once R is done chewing through the data, we can see that all users have clear gaps in their heart-rate logs.
+
+The heart rate data takes the form of individual polls recording the user's momentary heart rate. This presents a challenge compared to using the summary data, in that these individual logs must be processed to determine when the user was wearing their device continuously. Counting the number of logs over a given time period will not work, as the time between logs varies even when the device is worn. Polling times less than 60 seconds, for example, are typically between 1 and 20 seconds, as shown below:
+
+```{r viz_heartrate_polling_variance}
+heartrate_polling_variance <- heartrate_src_seconds_tall %>%
+  group_by(id) %>%
+  mutate(polling_diff = as.double(difftime(heart_rate_second, lag(heart_rate_second), units = "secs"))) %>%
+  filter(polling_diff < 60)
+
+ggplot(heartrate_polling_variance) +
+  geom_boxplot(aes(y = polling_diff)) +
+  scale_y_continuous(breaks = seq(0,60,by=5))
+```
+
+This means that even choosing the median value of 5 seconds could result in an inferred "time logged" value that's out by a factor of 5.
+
+To build out the data, I decided on an approach where the time between logs was used to infer the time logged, but only within an acceptable time difference. If one log follows its predecessor by less than this difference, the time between the two is considered "Logged" time: if the delay is greater, we assume the device was taken off for that time.
+
+From the polling variance analysis boxplot, we saw that the median, 75th-percentile, and Maximum values were 5 seconds, 10 seconds, and 17 seconds, respectively. Given this range, I selected 20 seconds as the maximum acceptable time between polls.
+
+```{r analyse_night_usage_heartrate}
+# Find nights where enough heart-rate data was logged to imply the user slept with their FitBit on
+
+sec2hour <- 1 / 3600
+# Sleep range set to between 10pm and 6am
+sleep_range_stt_hour <- 22
+sleep_range_end_hour <- 6
+# Anything more than this time between logs is considered a removal (typical poll rate is 1-20 seconds)
+max_poll_gap_secs <- 20
+# Minimum six hours must be logged to be counted
+min_hours_logged <- 6
+nights_total <- 33
+
+nights_logged_by_heart_rate <- heartrate_src_seconds_tall %>%
+  # For logs in the AM, the night-of is set to the day before
+  mutate(night_of_yday = ifelse(hour(heart_rate_second) >= sleep_range_stt_hour, yday(heart_rate_second),
+                                ifelse(hour(heart_rate_second) < sleep_range_end_hour, yday(heart_rate_second) - 1,
+                                       NA))) %>%
+  # Only consider logs from the "sleep" range
+  filter(!is.na(night_of_yday)) %>%
+  # Group by id so that difftime only compares timestamps from the same user
+  group_by(id) %>%
+  mutate(time_since_last_poll = as.double(difftime(heart_rate_second, lag(heart_rate_second), units = "secs"))) %>%
+  # Remove any logs that are followed by too long a gap
+  filter(time_since_last_poll <= max_poll_gap_secs) %>%
+  group_by(id, night_of_yday) %>%
+  # Find the total time logged as the sum of time between valid logs
+  summarize(logged_time_hours = sum(time_since_last_poll) * sec2hour) %>%
+  # Count up the nights where each user logged sufficient time to be considered asleep with their fitbit
+  group_by(id) %>%
+  summarize(nights_logged = sum(logged_time_hours > min_hours_logged),
+            nights_logged_pct = nights_logged / nights_total)
+
+# Plot histogram showing who logged what fraction of their nights
+plot_histo_pareto(nights_logged_by_heart_rate$nights_logged_pct, bin_width = 0.05) +
+  labs(title = "Percentage of Nights Logged In Bed - HR Users Only",
+       subtitle = "Source: Heart Rate Data")
+
+# Add missing ID values to the dataset to analyse the full cohort
+missing_ids <- setdiff(unique(activity_sum_days_wide$id), nights_logged_by_heart_rate$id)
+for (id in missing_ids) {
+  nights_logged_by_heart_rate <- nights_logged_by_heart_rate %>%
+    rbind(.,data.frame(
+          id = id,
+          nights_logged = 0,
+          nights_logged_pct = 0.0))
+}
+
+# Plot histogram showing who logged what fraction of their nights
+plot_histo_pareto(nights_logged_by_heart_rate$nights_logged_pct, bin_width = 0.05) +
+  labs(title = "Percentage of Nights Logged In Bed - All Users",
+       subtitle = "Source: Heart Rate Data")
+```
+
+Given the small number of heart-rate users, I also compared the the heart-rate results directly to the sleep log results to see if there was any difference in the nights logged for individual IDs:
+
+```{r viz_sleep_logs_vs_heartrate_logs}
+sleep_data_merged <- merge(nights_logged_by_sleep_log, nights_logged_by_heart_rate, by = "id", all = TRUE) %>%
+  select(id, pct_logged_asleep, nights_logged_pct) %>%
+  rename(sleep_logs = pct_logged_asleep,
+         heartrate_logs = nights_logged_pct)
+sleep_data_merged <- tidyr::gather(sleep_data_merged, key = "Variable", value = "Value", -id)
+
+ggplot(sleep_data_merged, aes(x = id, y = Value, fill = Variable)) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.7, color = "black") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.1)) +
+  labs(title = "Nights Logged: Sleep Logs vs. Heartrate Logs",
+       x = "ID",
+       y = "% of Nights Logged",
+       fill = "Source")
+```
+
+For those IDs present in both data sets, the results were almost identical, with only three users showing variation equating to 2-3 nights, indicating the method is valid.
+
+Findings:
+
+* Out of all users, 73% (24 users) did not log any heartrate-based sleep logs.
+* Out of all users, 42% (14 users) logged heart-rate data
+* Out of those users, the results were split, with 50% (7 users) logging sleep on 35% to 90% of nights, and the other 50% logging sleep on 0% to 15% of nights
+* The heart-rate-based analysis produces the same results for individual users as the sleep-log-based analysis
+* Overall, the results reinforce the findings of the sleep-log analysis, but only for the smaller sub-set of users that have devices with heart-rate tracking.
 
 #### Recommendations
 
-* The Readiness Score can be marketed as a value-add feature that produces more useful information when worn to bed than competing products
+* Overnight usage of FitBits appears to be split between a large majority who rarely wear their devices overnight, and a smaller minority who wear more frequently, up to 90% of the time
+* The Readiness Score can therefore be marketed as a value-add feature that produces more useful information when worn to bed than competing products
 * The non-allergenic materials used in the Ivy should be used to highlight the comfort aspects of the device when marketing features that require overnight wearing, as discomfort from overnight wear may be one of the factors contributing to the low utilisation of sleep logging in existing products.
 
 
+### Sleep Tracking
+
+"Ivy monitors your sleep patterns and knows exactly how your night is going to affect the next day."
+
+* Again, first off is just how many people used the sleep-tracking feature
+* Check if volume or quality of sleep improved
+* From the Surge Manual: [wearing your tracker 24/7 does not allow your skin to breathe](https://myhelp.fitbit.com/resource/manual_surge_en_US): This may be part of the reason people don't track overnight, and needs to be considered when marketing the features that require overnight wear
+
+#### Analysis: How many people used the sleep tracking feature?
+
+From the previous analysis for the Readiness Score feature, we know that sleep tracking is not commonly used, with a majority of 51% (17 users) logging 10% of nights or fewer, and the remainder spread out over a range up to 90% of nights.
+
+#### Analysis: What quantity of sleep are users getting?
+
+* Sleep is ranked as Awake, Restless, or Asleep
+* Quantity and quantity can be tracked as time spent Asleep as a percentage of total logged
+* Quality can also be tracked as 
+
+```{r analysis_sleep_quantity}
+sleep_sum_quant_qual <- sleep_src_mins_tall %>%
+  # Set the date for sleep logs in the AM to the day before, i.e. the Night Of [date]
+  mutate(sleep_date = as.Date(ifelse(hour(sleep_minute) > 12,
+                                     as.Date(sleep_minute),
+                                     as.Date(sleep_minute) - 1))) %>%
+  # mutate(sleep_date = as.Date(sleep_date)) %>%
+  group_by(id, sleep_date) %>%
+  summarize(minutes_awake    = sum(sleep_rank == "Awake"),
+            minutes_restless = sum(sleep_rank == "Restless"),
+            minutes_asleep   = sum(sleep_rank == "Asleep"),
+            minutes_total    = minutes_awake + minutes_restless + minutes_asleep,
+            pct_awake        = minutes_awake / minutes_total,
+            pct_restless     = minutes_restless / minutes_total,
+            pct_asleep       = minutes_asleep / minutes_total)
+
+sleep_sum_quant_qual_mean <- sleep_sum_quant_qual %>%
+  group_by(id) %>%
+  summarize(across(.cols = -sleep_date, \(x) mean(x, na.rm = TRUE), .names = "{.col}_mean")) %>%
+  mutate(hours_total_mean = minutes_total_mean / 60)
+
+plot_histo_pareto(sleep_sum_quant_qual_mean$hours_total_mean, bin_width = 1) +
+  labs(title = "Average Hours Asleep",
+       x = "Hours Asleep")
+```
+
+Findings:
+
+* The results appear realistic: the mean and median are 6.9 and 7.4 hours, respectively, with 79% of users (19 users) getting between 6 and 9 hours of sleep on average
+
+#### Analysis: What quality of sleep are users getting?
+
+```{r analysis_sleep_quantity}
+plot_histo_pareto(sleep_sum_quant_qual_mean$pct_awake_mean, bin_width = 0.05) +
+  labs(title = "Percentage of Sleep Logs Spent Awake",
+       x= "% of Time")
+plot_histo_pareto(sleep_sum_quant_qual_mean$pct_restless_mean, bin_width = 0.05) +
+  labs(title = "Percentage of Sleep Logs Spent Restless",
+       x= "% of Time")
+plot_histo_pareto(sleep_sum_quant_qual_mean$pct_asleep_mean, bin_width = 0.05) +
+  labs(title = "Percentage of Sleep Logs Spent Asleep",
+       x= "% of Time")
+```
+
+Findings:
+
+* The majority of users appear to be getting high-quality sleep, with 88% of users logging between 90% and 95% of time as Asleep
+* Time spent Awake is almost nil, with 88% of users logging less than 5% of time asleep. This is likely due to the programming of the FitBit devices, which feature an automatic sleep logging function that kicks in when it detects the user may be asleep, based on movement and heart rate data
+
+#### Analysis: Did sleep quantity or quality improve over time?
+
+```{r viz_sleep_over_time_bruteforce, eval=FALSE}
+# get_time_coefficients_plot <- function(ids, timestamps, values)
+ggplot(sleep_time_data,
+       aes(x = sleep_date,
+           y = pct_asleep)) +
+  geom_point() +
+  geom_smooth(method = "lm",
+                se = FALSE,
+                color = "blue") +
+    stat_cor(mapping=aes(label=..rr.label..),
+             method="pearson",
+             label.x=-Inf,
+             label.y=Inf,
+             hjust = -0.1,
+             vjust = 1.1) +
+  facet_wrap(vars(id))
+# Brute-force findings: Most lines are flat, with some (5-6) that are slightly down
+```
+
+I analysed sleep quantity and quality over time by calculating the coefficients with time of "total hours asleep" and "percentage of time awake", respectively:
+
+```{r viz_sleep_quantity_over_time}
+get_time_coefficients_plot(sleep_time_data$id,
+                         sleep_time_data$sleep_date,
+                         sleep_time_data$minutes_asleep) +
+  labs(title = "Coefficient of Time: Total Time Asleep")
+```
+
+```{r viz_sleep_quality_over_time}
+get_time_coefficients_plot(sleep_time_data$id,
+                           sleep_time_data$sleep_date,
+                           sleep_time_data$pct_asleep) +
+  labs(title = "Coefficient of Time: % of Time Asleep")
+```
+
+Findings:
+
+* The correlations for sleep quantity and quality formed approximately-normal distributions around zero, indicating no consistent increase for either variable
+* Sleep quantity appeared to decrease slightly, with mean and median correlations of -0.09 and -0.13, respectively
+* Sleep quantity was approximately static, with mean and median correlations of -0.04 and -0.02, respectively
+* Overall, there is nothing to indicate that users increased the quantity or quality of their sleep over time
+* The quantity and quality of sleep for this cohort of users was already relatively good, with the majority of users getting between 6-9 hours sleep, and spending upwards of 90% of that time in a stable Asleep state.
+
+#### Recommendations
+
+* Most users are not logging sleep
+* Those that are appear to already be getting high-quality sleep
+* There is nothing to indicate the use of the FitBits improved the quantity or quality of their sleep above this high baseline
+
+* Don't market this feature as something that will improve your sleep
+* Instead, given the consistency of users in getting their sleep, as evidenced by the small correlation with time for sleep quantity and quality, the Sleep Tracking could be marketed more as a way of tracking and reinforcing the user's existing good sleep habits 
+* As with the Readiness Score, marketing teams could frame the feature more as a way of getting a heads-up on days where you haven't slept well, since most of the time the feature would just tell users (from this cohort, at least) that they just had a reasonably good night's sleep. This would work well with the "track existing habits" marketing angle: think "You're great at giving your body the sleep it needs, but for those nights where things just don't work out, Ivy can give you guidance on whether you're up for the day, or better off taking it down a notch to recover."
+* If it exists, highlight a manual-activation mode for the Sleep Tracking mode. The low amount of non-Asleep data in this data set may be a result of people mostly using the automatic mode, which is convenient, but doesn't track time spent *trying* to get to sleep: a manual-activation feature could therefore be pushed harder as a sort of second feature that gets better data on how you go getting to sleep.
+
+### Resting Heart Rate and Cardiac Coherence
+
+Although the FitBits in the data set do have heart rate and breathing rate tracking, there is no data for resting heart rate or cardiac coherence specifically. What I can analyse is the data on heart-rate tracking generally, specifically:
+
+* How often do people track their heart-rates, either during the day or during the night?
+* When people do track their heart-rates, what level of activity are they engaged in? I.e. are they only putting their trackers on to exercise, or do they wear them during lower-activity or sedentary periods?
+
+This will help me understand whether or not the RHR and CC functions will appeal to the user base: for instance, users who rarely wear their existing heart-rate monitors, or only wear them during intense exercise, may be less likely to care about their longer-term cardiac performance.
+
+#### Analysis: How often do people track their heart-rate?
+
+##### Nighttime Usage
+
+From my previous analysis on heart-rate data, we know that overnight heart-rate tracking is split, with 50% (7 users) logging sleep on 35% to 90% of nights, and the other 50% logging sleep on 0% to 15% of nights.
+
+##### Daytime Usage
+
+I can adapt the code from the nighttime analysis to investigate daytime usage:
+
+```{r analyse_daytime_heartrate_usage}
+# Find nights where enough heart-rate data was logged to imply the user slept with their FitBit on
+
+sec2hour <- 1 / 3600
+# Sleep range set to between 10pm and 6am
+period_stt_hour <- 6
+period_end_hour <- 22
+# Typical poll rate is 1-20 seconds: increased to 60 to allow for device moving out of position during daytime movement
+max_poll_gap_secs <- 60
+# Minimum six hours must be logged to be counted
+min_hours_logged <- 6
+periods_total <- 33
+logging_days <- TRUE
+
+if (logging_days) {
+  periods_logged <- heartrate_src_seconds_tall %>%
+    mutate(yday = ifelse((hour(heart_rate_second) >= period_stt_hour & hour(heart_rate_second) < period_end_hour),
+                         yday(heart_rate_second),
+                         NA))
+} else {
+  # For night logging, set yday to the day before, i.e. "Night of [yday]"
+  periods_logged <- heartrate_src_seconds_tall %>%
+    mutate(yday = ifelse(hour(heart_rate_second) >= period_stt_hour,
+                         yday(heart_rate_second),
+                         ifelse(hour(heart_rate_second) < period_end_hour,
+                                yday(heart_rate_second) - 1,
+                                NA)))
+}
+
+periods_logged <- periods_logged %>%
+  # Only consider logs within the period of interest
+  filter(!is.na(yday)) %>%
+  # Group by id so that difftime only compares timestamps from the same user
+  group_by(id) %>%
+  mutate(time_since_last_poll = as.double(difftime(heart_rate_second, lag(heart_rate_second), units = "secs"))) %>%
+  # Remove any logs that are followed by too long a gap
+  filter(time_since_last_poll <= max_poll_gap_secs) %>%
+  group_by(id, yday) %>%
+  # Find the total time logged as the sum of time between valid logs
+  summarize(logged_time_hours = sum(time_since_last_poll) * sec2hour) %>%
+  # Count up the nights where each user logged sufficient time to be considered asleep with their fitbit
+  group_by(id) %>%
+  summarize(periods = sum(logged_time_hours > min_hours_logged),
+            periods_pct = periods / periods_total)
+
+# Plot histogram showing who logged what fraction of their nights
+plot_histo_pareto(periods_logged$periods_pct, bin_width = 0.05) +
+  labs(title = "Percentage of Periods Logged",
+       subtitle = "Source: Heart Rate Data")
+```
+
+Findings:
+
+* Daytime logging is much more popular than nighttime logging
+* 50% of users (7 users) logged 6 hours on between 80% to 95% of days
+* The other 50% of users logged on between 0% and 75% of days
+
+#### Analysis: What levels of activity do people typically track?
+
+First the naive approach: What percentage of various users' time is spent in what heart-rate zone?
+
+```{r analyse_intensity_levels}
+# From the Charge HR manual:
+#   Sedentary = 0-50% Max HR
+#   Lightly Active = 50-70% Max HR
+#   Fairly Active = 70-85% Max HR
+#   Very Active = 85-100% Max HR
+# Max HR = 220 - age
+# Arbitrarily set median age at 30 for initial analysis
+assumed_median_age <- 30
+max_heart_rate <- 220 - assumed_median_age
+hr_zone_1 <- 0.5 * max_heart_rate
+hr_zone_2 <- 0.7 * max_heart_rate
+hr_zone_3 <- 0.85 * max_heart_rate
+
+hr_zone_data <- heartrate_src_seconds_tall %>%
+  mutate(hr_zone = ifelse(heart_rate >= 0 & heart_rate < hr_zone_1, "sedentary",
+                   ifelse(heart_rate >= hr_zone_1 & heart_rate < hr_zone_2, "lightly_active",
+                   ifelse(heart_rate >= hr_zone_2 & heart_rate < hr_zone_3, "fairly_active",
+                   ifelse(heart_rate >= hr_zone_3, "very_active", NA))))) %>%
+  group_by(id) %>%
+  summarize(sedentary = sum(hr_zone == "sedentary"),
+            lightly_active = sum(hr_zone == "lightly_active"),
+            fairly_active = sum(hr_zone == "fairly_active"),
+            very_active = sum(hr_zone == "very_active"))
+
+#Convert data to long-format for plotting as a histogram
+hr_zone_order = c("sedentary", "lightly_active", "fairly_active", "very_active")
+hr_zone_data_long <- hr_zone_data %>%
+  tidyr::gather(key = "hr_zone", value = "count", -id) %>%
+  mutate(hr_zone = factor(hr_zone, levels = hr_zone_order))
+# 
+# # Generate data to order IDs by average "Very Active" time
+# mean_very_active_time_by_id <- mean_daily_intensities %>%
+#   filter(intensity == "very_active") %>%
+#   arrange(mean_minutes)
+# 
+# #Convert ID to factor ordered by average "Very Active" time
+# mean_daily_intensities$id <- factor(
+#   mean_daily_intensities$id,
+#   levels = mean_very_active_time_by_id$id)
+# 
+# # Comment out this line to include Sedentary time in the graph
+# #mean_daily_intensities <- mean_daily_intensities %>% filter(intensity != "sedentary")
+# 
+ggplot(hr_zone_data_long, aes(x= id, y= count, fill= hr_zone)) +
+  geom_bar(stat = "identity",
+           position = "fill") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title="Count of HR Logs by HR Zone",
+       x = "User ID",
+       y = "Count")
+```
+
+Findings:
+
+* The majority of logs for all but one user are in the "Sedentary" category, which equates to less than 95 bpm
+* It is fair to assume therefore that users are not only using their heart-rate trackers for exercise
+* There should be ample data to determine a user's resting heart rate from the daytime data, even if there is little nighttime data
+
+#### Recommendations
+
+* In order to match current user behaviours, the marketing for the Resting Heart Rate should emphasise daytime usage: for instance, advertise that the feature will help understand your resting heart rate during your work day, 
+* The data indicates that users typically do not log overnight, which may impact the performance of this feature: part of the usefulness of the feature comes from calibrating the data based on overnight heart-rate, so if users are not wearing overnight, the resting heart rate value may be skewed upward s as it is based primarily on daytime usage
+* The marketing should therefore encourage users to wear overnight, highlighting the synergy between this and the Readiness Score feature to maximise the likelihood that users wear overnight, and therefore the accuracy of both features
+* If users do not wear their devices overnight, they are unlikely to see the benefits and may consider other, less-featured but cheaper devices for their next purchase
+
 ### Features without Data
 
-Several functions and features of the Ivy are not present on the FitBits in the data set. These features include:
+Several functions and features of the Ivy are not present on the FitBits in the data set. Given the lack of data, it's not possible to directly analyse existing user behaviours with respect to these features, which include:
 
-* Cardiac Coherence tracking
-* Resting Heart Rate
 * Respiratory Rate
 * Hydration tracking
 * Mindfulness Minute Tracking
 * Menstrual Cycle
 * Wellness Score
-
-Given the lack of data, it's not possible to directly analyse existing user behaviours with respect to these features.
 
 #### Recommendations
 
