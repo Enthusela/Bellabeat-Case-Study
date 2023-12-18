@@ -1,0 +1,477 @@
+# Purpose
+
+This document contains content I developed for the Analyse Stage of the Bellabeat Ivy case study, but did not include in the final document due to a change in approach. I initially analysed all of the features in the dataset looking for any and all insights, but later realised that this method was not generating findings applicable to the Bellabeat Ivy specifically. I then switched to another method, where I listed out each feature of the Bellabeat Ivy that could be marketed, then analysed the data on equivalent features to investigate user behaviours with respect to those features, which helped me generate more applicable recommendations. The code and analyses I created during the first stage were still useful to me during the second, so I kept them in the document for easy referral, and to keep any relevant variables in the environment.
+
+Having completed the analysis, I'm now relocating the code and analyses here, just in case there are any useful code functions for my next project, or data I didn't realise I was using in the restructured analysis.
+
+# Omissions
+
+## Analysing function usage
+
+### Method
+
+This part of the analysis uses the unique IDs to determine what proportion of the sample base uses each feature. This works two ways: I located which IDs are in the data for each feature, and I located which features are in the data for each ID.
+
+```{r list_of_all_dataframes, eval=FALSE}
+dfs <- mget(df_names)
+for (i in seq_along(data)) {
+  print(names(data)[i])
+  glimpse(data[[i]])
+}
+```
+
+```{r unique_ids_per_feature}
+feature_usage = data.frame(
+  feature = character(0),
+  df_name = character(0)
+) %>%
+  rbind(.,data.frame(feature="Heart Rate",         df_name="heartrate_src_seconds_tall")) %>%
+  rbind(.,data.frame(feature="Calorie Burn",       df_name="calories_src_mins_tall")) %>%
+  rbind(.,data.frame(feature="Exercise Intensity", df_name="intensity_src_mins_tall")) %>%
+  rbind(.,data.frame(feature="MET Burn",           df_name="mets_src_mins_tall")) %>%
+  rbind(.,data.frame(feature="Step Count",         df_name="steps_src_mins_tall")) %>%
+  rbind(.,data.frame(feature="Sleep Tracking",     df_name="sleep_src_mins_tall")) %>%
+  rbind(.,data.frame(feature="Body Composition",   df_name="bodycomp_src_logs_wide"))
+
+unique_ids <- data.frame(
+  df_name = character(0),
+  id_count = numeric(0),
+  id_list = I(list())
+)
+
+for (i in 1:nrow(feature_usage)) {
+  name <- feature_usage$df_name[i]
+  df <- get(name)
+  if (!("id" %in% colnames(df))) {
+    cat("Warning: ",name,"[id] not found.\n",sep="")
+  } else {
+    id_vect <- unique(df$id)
+    id_count = length(id_vect)
+    unique_ids <- unique_ids %>%
+      rbind(.,data.frame(
+        df_name=name,
+        id_count=id_count,
+        id_list=I(list(id_vect))))
+  }
+}
+rm(df, i, id_count, id_vect, name)
+
+feature_usage <- merge(feature_usage, unique_ids, by="df_name", all=TRUE)
+feature_usage <- feature_usage %>%
+  arrange(desc(id_count))
+print(feature_usage)
+rm(unique_ids)
+```
+
+### Total Feature Usage Findings
+
+The first analysis is a simple record of how many users are logging data for each function
+
+```{r, viz_unique_IDs_by_feature}
+max_ids <- 33 # From manual inspection of the data
+
+custom_order <- feature_usage$feature
+feature_usage_sorted <- feature_usage
+feature_usage_sorted$feature <- factor(feature_usage_sorted$feature, levels = custom_order)
+
+ggplot(feature_usage_sorted, aes(feature, id_count)) +
+  geom_col() +
+  coord_cartesian(ylim=c(0L, max_ids)) +
+  theme(axis.text.x=element_text(angle=45, hjust=1)) +
+  labs(x="Feature", y="Unique ID Count", title="Unique ID Counts for Fitabase Features")
+rm(custom_order, feature_usage_sorted)
+```
+
+Findings on feature popularity:
+
+1. Calorie Burn, Exercise Intensity, MET Burn, and Step Count, with 100% of users
+2. Sleep tracking, with 73% of users
+3. Heart Rate tracking, with 42% of users
+4. Body Composition logging, with 24% of users
+
+### Unique ID Feature Usage Findings
+
+In this section, I wanted to plot which IDs were using which features. I decided to go with an X-Y scatter plot with ID on the X-axis and feature name on the Y-axis, to create a table
+
+```{r, count_features_by_unique_ID}
+# Identify all unique IDs in database
+unique_ids <- vector(mode="character")
+for (df_name in df_names) {
+  df <- get(df_name)
+  if ("id" %in% colnames(df)) {
+    unique_ids <- unique(c(unique_ids, unique(df$id)))
+  }
+}
+
+feature_tibble_long <- tibble() %>%
+  add_column(id := character(0)) %>%
+  add_column(feature := character(0)) %>%
+  add_column(used := logical(0))
+
+for (unique_id in unique_ids) {
+  for (j in 1:nrow(feature_usage)) {
+    feature_name <- feature_usage$feature[j]
+    id_list <- feature_usage$id_list[[j]]
+    feature_used <- FALSE
+    if (unique_id %in% id_list) {
+      cat("Found id \"",unique_id,"\" using ",feature_name,".\n",sep="")
+      feature_used <- TRUE
+    } else {
+      cat("Did not find id \"",unique_id,"\" using ",feature_name,".\n",sep="")
+    }
+    feature_tibble_long <- feature_tibble_long %>%
+      add_row(id=unique_id,feature=feature_name,used=feature_used)
+  }
+}
+
+feature_usage_summary <- feature_tibble_long %>% 
+  group_by(feature) %>%
+  summarize(sum_used = sum(used, na.rm = TRUE)) %>%
+  arrange(desc(sum_used))
+
+id_usage_summary <- feature_tibble_long %>% 
+  group_by(id) %>%
+  summarize(sum_used = sum(used, na.rm = TRUE))
+```
+
+``` {r viz_feature_usage}
+
+custom_order <- feature_usage_summary$feature
+feature_usage_sorted <- feature_tibble_long
+feature_usage_sorted$feature <- factor(feature_usage_sorted$feature, levels = custom_order)
+
+
+ggplot(feature_usage_sorted, aes(x = feature, y = id, color = used)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = c("TRUE" = "blue", "FALSE" = "red")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Feature Usage by ID",
+       x = "Feature",
+       y = "ID",
+       color = "Feature Used")
+```
+
+### Note on different FitBit devices
+
+The dataset does not indicate what type of FitBit each participant was using: it is possible the less-used features are unavailable on certain devices. This means the lack of usage may not be due to a lack of interest: users may be buying less-capable devices due to cost considerations, for example
+
+
+## Analysing the most-used features
+
+In order to develop a targeted marketing strategy for the Ivy, 
+
+Analyses for each feature:
+* Are people using these devices athletes trying to get an edge, or slackers tracking their sedentary lifestyles?
+* Does anything change over the month people use their device? In other words, can we claim the usage is correlated to improvements?
+
+### TO OMIT: Calorie and MET Tracking
+
+Firstly I have a look at the overall daily calorie burn for our users:
+
+```{r average_daily_calories}
+mean_daily_cals <- calories_sum_days_tall %>%
+  group_by(id) %>%
+  summarize("mean_calories" = mean(calories))
+
+ggplot(mean_daily_cals, aes(x=reorder(id, mean_calories), y=mean_calories)) +
+  geom_col() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+I found a fairly even spread of uses: using 2000 calories as a benchmark value, most IDs are at or above that benchmark. Lets get a more explicit breakdown by building a histogram, binning IDs into 250-calorie groups:
+
+```{r mean_daily_cals_histogram}
+ggplot(mean_daily_cals, aes(x=mean_calories)) +
+  geom_histogram(binwidth=250)
+```
+
+Here we get a clearer view of the distribution: the largest cohort is in the 2000-calorie range, with a small number below that, and a long tail increasing up to 3500 calories per day on average. An implication here is that the majority of users are engaging in exercise, but calories burned alone don't confirm that to my satisfaction.
+
+At this point, I would ideally cross-reference the calorie data with body composition data to see if the higher-calorie IDs are associated with users with a higher BMI or weight, which would imply a higher base energy requirement. However, only 8 of the 33 users have logged body composition, versus all 33 users who logged calories, so this would not be comprehensive.
+
+I can use the Exercise Intensity metric to get a better idea of who's burning more calories. To get a baseline view, I'll visualise the average time spent in each of the four Intensity zones for each user:
+
+```{r viz_average_daily_intensities_by_id}
+# For each ID, generate averages for the three non-sedentary intensity levels
+
+mean_daily_intensities_wide <- intensity_sum_days_wide %>%
+  group_by(id) %>%
+  summarize("sedentary" = mean(minutes_sedentary),
+            "lightly_active" = mean(minutes_lightly_active),
+            "fairly_active" = mean(minutes_fairly_active),
+            "very_active" = mean(minutes_very_active))
+
+#Convert data to long-format for plotting as a histogram
+intensity_order = c("sedentary", "lightly_active", "fairly_active", "very_active")
+mean_daily_intensities <- mean_daily_intensities_wide %>%
+  tidyr::gather(key = "intensity", value = "mean_minutes", -id) %>%
+  mutate(intensity = factor(intensity, levels = intensity_order))
+
+# Generate data to order IDs by average "Very Active" time
+mean_very_active_time_by_id <- mean_daily_intensities %>%
+  filter(intensity == "very_active") %>%
+  arrange(mean_minutes)
+
+#Convert ID to factor ordered by average "Very Active" time
+mean_daily_intensities$id <- factor(
+  mean_daily_intensities$id,
+  levels = mean_very_active_time_by_id$id)
+
+# Comment out this line to include Sedentary time in the graph
+#mean_daily_intensities <- mean_daily_intensities %>% filter(intensity != "sedentary")
+
+ggplot(mean_daily_intensities, aes(x= id, y= mean_minutes, fill= intensity)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title="Average Time by Intensity Zone",
+       x = "User ID",
+       y = "Total Average Daily Time (minutes)")
+```
+
+Immediately, a trend is clear:
+* The majority of users' time is spent "Sedentary"
+* The majority of non-Sedentary time is spent "Lightly Active"
+
+Caveats:
+* The averages don't add up to full weeks, so its possible people aren't tracking all of their exercising.
+
+The original idea here was to see who's burning the calories and how, so now let's plot active time against average calories burned. For this I generated three graphs, plotting calories burned against:
+* Average non-sedentary time (sum of Lightly, Fairly, and Very Active minutes)
+* Average active time (sum of Fairly and Very Active minutes)
+* Average very-active time (sum of Very Active minutes)
+
+```{r calories_vs_activity}
+mean_non_sedentary_time <- intensity_sum_days_wide %>%
+  group_by(id, activity_day) %>%
+  summarize("non_sedentary_time" = sum(minutes_lightly_active,
+                                       minutes_fairly_active,
+                                       minutes_very_active)) %>%
+  group_by(id) %>%
+  summarize("mean_non_sedentary_time" = mean(non_sedentary_time))
+
+cals_vs_activity <- merge(mean_daily_cals, mean_non_sedentary_time, by="id")
+
+plot_cal_vs_non_sedentary <- ggplot(cals_vs_activity) +
+  geom_point(aes(x=mean_non_sedentary_time, y=mean_calories)) +
+  geom_smooth(mapping=aes(x=mean_non_sedentary_time,y=mean_calories),
+              method = "lm",
+              se = FALSE,
+              color = "blue") +
+  stat_cor(aes(x=mean_non_sedentary_time, y=mean_calories, label=..rr.label..),
+           label.x=0,
+           label.y=0)
+```
+
+```{r cals_vs_more_active}
+mean_fairly_active_time <- intensity_sum_days_wide %>%
+  group_by(id, activity_day) %>%
+  summarize("active_time" = sum(minutes_fairly_active,
+                                minutes_very_active)) %>%
+  group_by(id) %>%
+  summarize("mean_fairly_active_time" = mean(active_time))
+
+cals_vs_activity <- merge(mean_daily_cals, mean_fairly_active_time, by="id")
+
+plot_cal_vs_active <- ggplot(cals_vs_activity) +
+  geom_point(aes(x=mean_fairly_active_time, y=mean_calories)) +
+  geom_smooth(mapping=aes(x=mean_fairly_active_time,y=mean_calories),
+              method = "lm",
+              se = FALSE,
+              color = "blue") +
+  stat_cor(aes(x=mean_fairly_active_time, y=mean_calories, label=..rr.label..),
+           label.x=0,
+           label.y=0)
+```
+
+```{r cals_vs_very_active}
+mean_very_active_time <- intensity_sum_days_wide %>%
+  group_by(id) %>%
+  summarize("mean_active_time" = mean(minutes_very_active))
+
+cals_vs_very_active <- merge(mean_daily_cals, mean_very_active_time, by="id")
+
+plot_cal_vs_very_active <- ggplot(cals_vs_very_active, aes(x=mean_active_time, y=mean_calories)) +
+  geom_point() +
+  geom_smooth(mapping=aes(x=mean_active_time,y=mean_calories), method = "lm", se = FALSE, color = "blue") +
+  stat_cor(aes(x=mean_active_time, y=mean_calories, label=..rr.label..), label.x=0, label.y=0)
+```
+
+All three plots are shown together for comparison.
+
+```{r plot_cals_vs_intensity}
+plot_cal_vs_non_sedentary <- plot_cal_vs_non_sedentary + scale_x_continuous(limits=c(0,350))
+plot_cal_vs_active <- plot_cal_vs_active + scale_x_continuous(limits=c(0,350))
+plot_cal_vs_very_active <- plot_cal_vs_very_active + scale_x_continuous(limits=c(0,350))
+
+grid.arrange(plot_cal_vs_non_sedentary, plot_cal_vs_active, plot_cal_vs_very_active, nrow = 3)
+```
+
+Final Findings:
+
+* Visual inspection of the charts confirms a fairly-obvious theory: more time spent doing higher-intensity activities correlates with a rapid increase in calories burned. The relationship 
+* Calories burned is shown to correlate only loosely with total non-sedentary time, with R^2 = 0.041, but more tightly with active and very-active time, with R^2 = 0.32 and R^2 = 0.4, respectively.
+* The scatterplot for Very Active time show a small group of outliers with very high calorie burn and Very Active time
+* There's a decent spread of calories-burned even at the lower ranges of active time, which is what you'd expect from a group of mostly-sedentary people of presumably different ages, heights, weights, and genders
+
+
+
+
+#### TO OMIT: Workout-based Analysis
+
+A limitation of analysing the overall weekly time spent in the different zones is that it does not identify discrete "sessions" of physical activity. This means that we could get misleadingly similar final numbers for two different lifestyles: for example, one user might do regular short bursts of exertion (such as climbing stairs in an office) but never go to the gym, while a second user might regularly go to the gym but is otherwise sedentary.
+
+To get around this, I took the minute-by-minute intensity data and grouped it not just by ID but by timestamp difference: any timestamps within a certain distance apart were grouped into one "session". The resultant sessions gave me a new data point to analyse.
+
+```{r get_workouts, eval=FALSE}
+
+# I want to group exercises together for data logged within a certain time frame of the next/previous item
+# e.g. logs within 20 minutes of each other, but not further apart than that
+# This would let me break up the minute-by-minute data into discrete "sessions"
+
+max_time_diff <- minutes(10)
+min_workout_duration <- 15
+intensity_mapping <- c("Fairly Active" = 1, "Very Active" = 2)
+
+workouts_src_workout_wide <- intensity_src_mins_tall %>%
+  filter(intensity == "Fairly Active" | intensity == "Very Active") %>%
+  arrange(activity_minute) %>%
+  group_by(id) %>%
+  mutate(workout = cumsum(c(TRUE, diff(activity_minute) > max_time_diff)),
+         intensity_numeric = as.numeric(
+           factor(
+             intensity,
+             levels = names(intensity_mapping),
+             labels = intensity_mapping
+             )
+           )
+         ) %>%
+  group_by(id, workout) %>%
+  summarize(workout_start = min(activity_minute),
+            workout_end = max(activity_minute),
+            workout_duration = difftime(workout_end, workout_start, units="mins"),
+            workout_mean_intensity = round(mean(intensity_numeric), digits=0)) %>%
+  filter(workout_duration > min_workout_duration)
+```
+
+Now that the individual workouts have been identified, I can summarize them for each user. This allows me to plot average weekly sessions:
+
+```{r viz_session_counts_total, eval=FALSE}
+weeks_in_sample = 30 / 7 # 30 days in dataset
+workouts_sum_id_wide <- workouts_src_workout_wide %>%
+  group_by(id) %>%
+  summarize(fairly_active_sessions = sum(workout_mean_intensity == 1),
+            very_active_sessions = sum(workout_mean_intensity == 2)) %>%
+  mutate(total_sessions = fairly_active_sessions + very_active_sessions) %>%
+  mutate(average_weekly_sessions = ceiling(total_sessions / weeks_in_sample))
+
+session_count_cumulative <- workouts_sum_id_wide %>%
+  select(id, average_weekly_sessions) %>%
+  arrange(average_weekly_sessions)
+
+total_users <- nrow(session_count_cumulative)
+session_count_cumulative <- session_count_cumulative %>%
+  mutate(cumulative = row_number() / total_users)
+
+ymax <- 5
+ggplot(session_count_cumulative, aes(x=average_weekly_sessions)) +
+  geom_histogram(binwidth = 1, col="white") +
+  scale_x_continuous(breaks = seq(0, 20, by = 1)) +
+  geom_line(aes(x = average_weekly_sessions,
+                y = cumulative * ymax),
+            col="red") +
+  scale_y_continuous(name = "Number of Users",
+                     sec.axis = sec_axis(~./ymax,name = "Cumulative Percentage of Users")) +
+  labs(title = "Average Weekly Sessions",
+       x = "Average Weekly Sessions")
+```
+
+Findings: most people are averaging 5 "sessions" or less of intense activity per week.
+
+```{r viz_workouts_by_duration, eval=FALSE}
+ggplot(workouts_src_workout_wide, aes(x=workout_duration)) +
+  geom_histogram(bins=20)
+```
+
+TODO: Analyse the two outliers
+
+When identifying the individual workout sessions, I also analysed the intensity data to determine an average intensity for each session. 
+
+Question: Are users more likely to engage in Fairly or Very Active activities when exercising?
+
+To answer this, I summarized the intensity data on a per-ID basis, to get separate totals for sessions that averaged Fairly Active and Very Active, respectively.
+
+```{r viz_session_counts_by_intensity, eval=FALSE}
+session_count_long <- workouts_sum_id_wide %>%
+  select(id, fairly_active_sessions, very_active_sessions) %>%
+  tidyr::gather(key = "intensity", value = "count", -id) %>%
+  mutate(intensity = factor(intensity, levels = c("fairly_active_sessions", "very_active_sessions")))
+
+# Reorder session_count_long%id by "Very Active Session" count
+
+workouts_sum_id_wide <- workouts_sum_id_wide %>%
+  mutate(proportion_very_active = very_active_sessions / total_sessions) %>%
+  arrange(proportion_very_active)
+
+session_count_long$id <- factor(
+  session_count_long$id,
+  levels = workouts_sum_id_wide$id)
+
+# Plot stacked bar-graph for sessions, similar to the one for overall time
+
+ggplot(session_count_long, aes(x = id, y = count, fill=intensity)) +
+  geom_bar(stat = "identity",
+           position = "fill") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Session Counts by Intensity",
+       x = "User ID",
+       y = "Sessions")
+```
+
+Finding: Visual inspect shows a wide range
+
+```{r viz_session_proportion, eval=FALSE}
+workouts_sum_id_wide <- workouts_sum_id_wide %>%
+  mutate(proportion_very_active = very_active_sessions / total_sessions)
+
+bin_width_pct <- 0.2
+ggplot(workouts_sum_id_wide, aes(x = proportion_very_active)) +
+  geom_histogram(binwidth = bin_width_pct,
+                 col = "white") +
+  scale_x_continuous(breaks = seq(0, 1.0, bin_width_pct)) +
+  scale_y_continuous(breaks = seq(0,17,by=1)) +
+  labs(title = "Proportion of Very Active Sessions",
+       x = "Proportion of Very Active Sessions (%)",
+       y = "Count of Users")
+```
+
+```{r viz_workouts_by_intensity, eval=FALSE}
+ggplot(workouts_src_workout_wide, aes(x=workout_mean_intensity)) +
+  geom_histogram(binwidth = 1, col = "white") +
+  scale_x_continuous(
+    breaks = seq(1, 2, by = 1),
+    labels = c("Fairly Active", "Very Active"))
+```
+
+Findings:
+
+* The vast majority of non-sedentary times are spent in Lightly Active Mode
+* The remaining Fairly and Very Active time is pretty evenly spread, with 15 users mostly Fairly Active, and 16 users mostly Very Active
+* Majority of users do 5 sessions per week or fewer on average
+
+Conclusions: users aren't 
+
+
+
+
+### TODO: Step Counts
+
+* Step count vs distance and intensity: are people running? Walking?
+* Do people hit their 10,000 steps? (Yes, I know that's an arbitrary figure)
+* Do people increase their step counts over time?
+
+
+#### TO OMIT: Why Bellabeat doesn't need MET tracking
+
+All of the most-used features from the database are available on the Bellabeat Ivy except MET tracking. The MET (Metabolic Equivalent of Task) is a unit of measurement for energy expenditure, or exertion, intended to aid direct comparison between different types of exercise. The Ivy does not generate MET data, but does track calories burnt, which can also be used as a measure of exertion. I recommend presenting calorie tracking as a suitable alternative when targeting advertising at those customers who use the MET tracking feature.
+
+Note that the two features are nearly equivalent and may not present any meaningful distinction to customers.
