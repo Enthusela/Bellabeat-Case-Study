@@ -22,8 +22,7 @@ This analysis was initiated by Urška Sršen, co-founder of Bellabeat. Sršen kn
   + Will use my insights to guide marketing strategies
 
 # Step 2: Prepare
-## Setting up my tools
-### Selecting my tools
+## Selecting my tools
 
 For this analysis I wanted a tool or set of tools with the following features:
 
@@ -51,19 +50,30 @@ Clearly, R is the best single tool for this analysis. R lacks the straightfoward
 
 Note: Python itself was not considered for this analysis: while it shares most of the features, advantages, and disadvantages of R, I'm already familiar with Python and wanted to use this case study to familiarise myself with R instead
 
-### Setting up my RStudio environment
+## Setting up my RStudio environment
 
-The first preparation stage involves setting up my RStudio environment for my analysis.
+I set up my RStudio environment using the following packages:
 
-The R chunk below automatically loads all packages included in the "rqd_pkgs" list, installing them first if required: this ensures all packages can be loaded by other analysts replicating my work, and minimises the effort required to modify the package list.
+* dplyr
+* anytime
+* tidyverse
+* janitor
+* readr
+* skimr
+* tibble
+* ggplot2
+* gridExtra
+* ggpubr
+* kableExtra
+* purrr
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, results='hide'}
 # Set up knitting options with the knitr package
 knitr::opts_chunk$set(
-	echo = TRUE,
+	echo = FALSE,
 	message = FALSE,
-	warning = FALSE,
-	results = 'hide'
+	results = 'hide',
+	warning = FALSE
 )
 
 # Load all required packages
@@ -95,9 +105,8 @@ rm(rqd_pkgs)
 print("Loading packages complete.")
 ```
 
-```{r set_dir, include=FALSE}
+```{r prep-set-dir}
 # Set the working directory of the R markdown environment to match that of the console
-# Omitted from report: for working on my laptop specifically
 dir <- "/Users/nathanweaver/Documents/GitHub/Bellabeat Case Study"
 setwd(dir)
 cat("Set working directory to:", dir, "\n")
@@ -105,17 +114,14 @@ cat("Set working directory to:", dir, "\n")
 
 ## Getting the data
 
-For this data analysis, I'll be making use of one public data set specified by Sršen, plus additional data sets as required to address any limitations found in that dataset.
-
-The data set specified by Sršen is the [FitBit Fitness Tracker Data Set](https://www.kaggle.com/datasets/arashnic/fitbit). This is a public data set available under the [CC0 License](https://creativecommons.org/share-your-work/public-domain/cc/) via [Kaggle user Mobius](https://www.kaggle.com/arashnic).
+For this data analysis, I'll be making use of one public data set specified by Sršen. The data set specified is the [FitBit Fitness Tracker Data Set](https://www.kaggle.com/datasets/arashnic/fitbit). This is a public data set available under the [CC0 License](https://creativecommons.org/share-your-work/public-domain/cc/) via [Kaggle user Mobius](https://www.kaggle.com/arashnic).
 
 For the initial analysis, the data set was downloaded in its entirety from Kaggle and stored locally on my computer. This provided a baseline for analysis, with any modifications to file names, folder re-structuring, or removal of unnecessary data tables to be conducted after I'm familiar with the raw data.
 
-### Loading the data
+The raw CSV files in the dataset were loaded directly into the environment as data frames.
 
-To get a top-level view of the data, I first use the readr package to load all of the required data sets directly into the my R environment.
-
-```{r load_data_cleaned}
+```{r prep-load-data-cleaned}
+# Load all CSVs in the source directory into the environment
 csv_dir <- "Fitabase_Data_Cleaned"
 paths_dfs <- list.files(csv_dir, pattern = "*.csv", full.names = TRUE)
 
@@ -125,9 +131,9 @@ df_names <- paths_dfs %>%
 
 for (i in 1:length(df_names)) {
   assign(df_names[i], read_csv(paths_dfs[i]))
-  cat(df_names,"\n")
 }
 rm(i, paths_dfs)
+
 ```
 
 ## Understanding the data
@@ -148,14 +154,8 @@ The database contains data on the following features of the FitBit devices:
 | Sleep                   | Factor, 1 to 3         | 1 minute                 |
 | Steps                   | Steps                  | 1 minute                 |
 
-
-Some details of the data gathering are not yet clear to me:
-
-* The real-world meanings of the "Intensity" factor variable levels; presumably 3 is maximum intensity and 0 is inactivity.
-* The real-world meanings of the "Sleep" factor variable levels are; presumably it indicates "quality of sleep", with 3 being best.
-* What triggers the non-manual reports; presumably it's logged from another device, like a body composition analyser.
-
-### Inconsistent and misleading file names
+### Issues
+#### Inconsistent and misleading file names
 
 The file names in the data set present the following issues:
 
@@ -172,11 +172,11 @@ To correct each of these issues, I'll rename the files using this naming convent
 
 For example, "sleepDay_merged.csv" will be renamed to "sleep_sum_days_wide.csv".
 
-### Inconsistent variable names
+#### Inconsistent variable names
 
-All variables in the data set are named in CapitalisedCase, whereas I would typically use snake_case by convention. This is a relatively minor issue that I could go without correcting, however a small number of variable names, like logId, are also inconsistently capitalised across different tables. Since I'll be adjusting some names anyway, and there's presumably a library function to change this with minimal effort, I'll put it on the data-cleaning to-do list.
+All variables in the data set will be changed from CapitalisedCase to snake_case, by convention and to address an issue with inconsistently-capitalised variables (e.g. logId).
 
-### Inappropriate variable types
+#### Inappropriate variable types
 
 Some of the tables in the data set use variables of a type unsuitable for analysis. These variables and their required modifications are tabulated below:
 
@@ -191,37 +191,58 @@ Some of the tables in the data set use variables of a type unsuitable for analys
 | SleepDay       | chr           | datetime     | Cannot perform datetime operations on chr variables |
 | Time           | chr           | datetime     | Cannot perform datetime operations on chr variables |
 
-### Missing context for numeric variables
+#### Missing context for numeric variables
 
-All of the numeric variables in the data set have clearly defined units except for "Distance". Distance does not appear to have a source data table: it's only included in the "activity_sum_wide_days" and "intensity_sum_wide_days" tables, and only as summary data grouped via Intensity level. Floating-point values between 0 and 1 are present, so it seems reasonable to assume this is either kilometers or miles, as opposed to meters or feet. No geographical information is given in the data set, so I can't assume the participants are from the U.S., where miles would be appropriate. Given miles and kilometers represent the same information on slightly different scales, any insights about different use cases between users should still be apparent, therefore I think it's reasonable to assume the distances are given in kilometers for this analysis.
+All of the numeric variables in the data set have clearly defined units except for "Distance". Distance does not appear to have a source data table: it's only included in the "activity_sum_wide_days" and "intensity_sum_wide_days" tables, and only as summary data grouped via Intensity level. Daily values between 0 and 1 are present, so it seems reasonable to assume this is either kilometers or miles, as opposed to meters or feet. Miles and kilometers represent the same information on slightly different scales, so the analysis should not be affected as long as the units are consistent across tables, which they appear to be. I will therefore assume the distances are given in kilometers for this analysis.
 
-### Missing context for factor variables
+#### Missing context for factor variables
 
-Two variables in the data set, exercise "Intensity" and sleep "Value", are numerical factors with no defined range. For these factors, I can't tell from the data alone whether all possible values that a FitBit can record are present. The values for exercise intensity, for example, range from 0 to 3; it could be the case that the FitBits used only generate four levels of intensity, but it could just as easily be the case that the values go up to 100 (i.e. a percentage). This has clear implications for our analysis: if 3 is the max, records of 3 indicate users wear their FitBits while exercising as hard as they can, whereas if 100 is the max, records of 3 indicate users wear their FitBits while sitting on the couch as hard as they can.
+Two variables in the data set, "Intensity" (for exercise) and "Value" (for sleep), are numerical factors with no defined range. For these factors, I couldn't tell from the data alone whether all possible values that a FitBit can record are present. The values for exercise intensity, for example, range from 0 to 3; it could have been the case that the FitBits used only generate four levels of intensity, but it could just as easily have been that the values go up to 100 (i.e. a percentage). This had clear implications for the analysis: if 3 was the max, records of 3 indicated users wear their FitBits while exercising as hard as they can, whereas if 100 was the max, records of 3 indicated users wear their FitBits while sitting on the couch as hard as they can. The meaning of these variables had to be validated before the analysis could continue.
 
-With this in mind, I'm going to invest a bit of time to confirm the meaning of these variables before attempting to analyse them (read: about ten hours to investigate everything _and_ learn how to do it all in R _and_ learn how to make it look suitably pretty and coherent in RMarkdown).
+#### Duplicate data between tables
 
-#### Validating "Exercise Intensity" by use of R
+The data set includes some tables that contain source data for a given feature, e.g. heart-rate tracking, and others that contain summary data, e.g. everything in the "activity_days_sum_wide" table. 
 
-I'll start by determining the range of values present in the Intensity data:
+Some of these are useful, for instance: 
 
-``` {r find_intensity_min_max, eval=FALSE}
-cat("Min Intensity:", min(intensity_src_mins_tall$intensity),
-    "\nMax Intensity:", max(intensity_src_mins_tall$intensity), "\n", sep = "")
+* dailyActivities_merged.csv calculates Sedentary Minutes by excluding time spent asleep. This either requires clever/time-consuming cross-referencing with other tables, or is raw data from a calculation performed on the FitBit itself: either way, I don't want to have to do it again
+* sleepDay_merged.csv summarises sleep on a per-night basis, which is more useful for comparing users than the raw, minute-by-minute sleep data
+
+Others are not useful, for instance: 
+
+* calories_sum_mins_wide.csv, intensity_sum_mins_wide.csv, and steps_sum_mins_wide.csv all just pivot minute-level data into one 60-column row per hour containing the same data
+* minuteIntensitiesWide_merged.csv just sums and averages intensity per hour
+
+Those tables that do not provide useful summaries can be excluded from the data analysis: if a specific need is found for their data, they can be reloaded or recreated manually as required.
+
+#### Duplicate data within tables
+
+The "bodycomp_logs_src_wide.csv" file contains both kilogram and pound variables: these describe the same information, and all of the observations contain values for both variables, so one variable can be dropped with no loss of data. The choice between the two formats seems arbitrary for my analysis, so I'm choosing to keep the kilos data as its expressed in an SI unit.
+
+intensity_sum_hours_wide.csv contains Total Intensity and Average Intensity. Total intensity values exceed 4, the maximum for intensity, and so are not actually useful. Average Intensity is just the Total Intensity for each hour divided by 60 minutes per hour.
+
+### Validating "Exercise Intensity"
+
+As discussed above, the exercise-related "Intensity" variable is a numerical factor with no defined range: the limits of the range and meaning of the values must be determined before the analysis can proceed. I'll start by determining the range of values present in the source Intensity data:
+
+```{r prep-get-intensity-range, results = 'markdown'}
+# Display all unique Exercise Intensity values
+print(unique(intensity_src_mins_tall$Intensity))
+
 ```
 
-The "activity_sum_days_wide" table provides some context clues as to what the levels might mean: the table summarises Intensity data into four new variables which, based on their names, appear to be associated with intensity levels like so:
+The "activity_sum_days_wide" table provided some context clues as to what these four levels might mean: the table summarises Intensity data into four new variables which, based on their names, appear to be associated with intensity levels like so:
 
 1. Sedentary Minutes
 2. Lightly Active Minutes
 3. Fairly Active Minutes
 4. Very Active Minutes
 
-Let's see if I can confirm this by recreating the data with that naming convention:
+I confirmed this naming convention by using it to reconstruct the daily summary data in "activity_sum_days_wide", then comparing the two tables:
 
-```{r compare_intensity_data, eval=FALSE}
-# Generate my version of sleepDay_merged for comparison with the original
-intensity_daily_sum_wide <- intensity_src_mins_tall %>%
+```{r prep-compare-intensity-data, results = 'markdown'}
+# Reconstruct the summary intensity data for comparison with the original
+activity_sum_days_wide_test <- intensity_src_mins_tall %>%
     mutate(activity_date_floored = floor_date(mdy_hms(ActivityMinute), unit = "days")) %>%
     group_by(Id, activity_date_floored) %>%
     summarize(
@@ -239,7 +260,7 @@ intensity_daily_comp <- activity_sum_days_wide %>%
     mutate(Id_ActivityDate_UID = paste(Id, ActivityDate_floored, sep = "_")) %>%
     with(merge(
         .,
-        intensity_daily_sum_wide,
+        activity_sum_days_wide_test,
         by = c("Id_ActivityDate_UID"),
         all = TRUE
     )
@@ -262,20 +283,20 @@ intensity_daily_comp <- activity_sum_days_wide %>%
     ) %>%
     arrange(Id_ActivityDate_UID)
 
-# For this table, glimpse() shows enough to demonstrate the validity of the method
+cat("Printing all rows with non-zero diff values:\n")
 glimpse(intensity_daily_comp)
-rm(intensity_daily_sum_wide, intensity_daily_comp)
+rm(activity_sum_days_wide_test, intensity_daily_comp)
+
 ```
 
-The approach above appears to work perfectly, with the exception of the "sedentary minutes" calculation, which is consistently higher in my version.
+The approach above produced no errors, except for the "sedentary minutes" calculation, which was consistently higher in the reconstructed data.
 
-I think its safe to conclude that I got the mapping correct, given that:
-a) It's consistently higher by at least 6 hours, which I suspect is caused by my method counting time asleep as "sedentary minutes" - which is not _technically_ wrong, you know - and
-b) Reversing the order of the mapping produces entirely wrong results.
+I concluded that I got the mapping correct, given that:
+
+a) The values were consistently higher by at least 6 hours: this appeared to be due to my method counting time asleep as "sedentary minutes", which is reasonable
+b) Reversing the order of the mapping produced entirely wrong results.
 
 That being said, I still don't know if these are the categories FitBits work in, not another naming convention that the data authors came up with, and I don't know if all FitBit models work this way, so let's do something I should have done from the start: read the manuals.
-
-#### Validating "Exercise Intensity" by reading of manuals
 
 Activity trackers like FitBits detect activity intensity partly by measuring the user's heart rate while exercising: a higher heart rate corresponds with a higher degree of exertion. As of April 2016, the three latest FitBit models with heart-rate tracking were:
 
@@ -302,13 +323,14 @@ At this point, I'm satisfied that the below are the only four intensity levels I
 2. Fairly Active Minutes
 3. Very Active Minutes
 
-#### Validating "Sleep Quality" by use of R _and_ reading of manuals
+### Validating "Sleep Value"
 
-As with exercise intensity, I start by determining the range of values present in the data:
+As discussed above, the sleep-related "Value" variable is a numerical factor with no defined range: the limits of the range and meaning of the values must be determined before the analysis can proceed. As with exercise intensity, I start by determining the range of values present in the data:
 
-``` {r find_sleep_min_max}
-cat("Min Sleep:", min(sleep_src_mins_tall$value),
-    "\nMax Sleep:", max(sleep_src_mins_tall$value), "\n", sep = "")
+```{r prep-get-sleep-value-range, results = 'markdown'}
+# Display all unique Sleep Value values
+print(unique(sleep_src_mins_tall$value))
+
 ```
 
 The values for sleep quality range from 1 to 3. The summary data tables for sleep quality introduce only two new variable names: "Total Time In Bed", and "Total Minutes Asleep". There's not a valid name for each level of factor like there was for exercise, so in this case we go straight back to the manuals:
@@ -328,13 +350,17 @@ The help pages also single out the Charge HR and the Surge as the only HR-tracki
 * 2: Restless
 * 3: Asleep
 
-I can confirm this mapping by attempting to recreare duplicate the summary data in sleepDay_merged:
+As with the intensity data, I confirmed this by reconstructing the original summary data using this mapping. In practice it turns out I had the mapping inverted, and actually the following was used:
 
-As with the intensity data, I can confirm this by recreating the data with that naming convention:
+* 1: Asleep
+* 2: Restless
+* 3: Awake
 
-```{r compare_sleepDay_data, eval=FALSE}
-# Generate my version of sleepDay_merged for comparison with the original
-sleep_src_mins_tall_NW <- sleep_src_mins_tall %>%
+This appears to be read as "1 is highest-quality sleep, 3 is worst-quality". I was able to recreate the existing sleep_src_mins_tall table almost perfectly using this mapping:
+
+```{r prep-compare-sleep-value-data, results = 'markdown'}
+# Reconstruct the summary sleep data for comparison with the original
+sleep_sum_days_wide_test <- sleep_src_mins_tall %>%
     # mutate(date_typed = mdy_hms(date)) %>%
     mutate(date_floored = floor_date(mdy_hms(date), unit = "days")) %>%
     # Sum time asleep for each Log ID
@@ -344,10 +370,9 @@ sleep_src_mins_tall_NW <- sleep_src_mins_tall %>%
         # Associate each Log ID with the latest date recorded under it
         "SleepDay" = max(date_floored),
         "minutes_in_bed"   = n(),
-        "minutes_awake"    = sum(case_when(value == 3 ~ 1, TRUE ~ 0)),
-        "minutes_restless" = sum(case_when(value == 2 ~ 1, TRUE ~ 0)),
-        "minutes_asleep"   = sum(case_when(value == 1 ~ 1, TRUE ~ 0))
-    ) %>%
+        "minutes_awake"    = sum(value == 3),
+        "minutes_restless" = sum(value == 2),
+        "minutes_asleep"   = sum(value == 1)) %>%
     # Sum time asleep for each date based on SleepDay
     group_by(Id, SleepDay) %>%
     summarize(
@@ -368,7 +393,7 @@ sleepDay_comp <- sleep_sum_days_wide %>%
     arrange(Id_SleepDay_UID) %>%
     with(merge(
         .,
-        sleep_src_mins_tall_NW,
+        sleep_sum_days_wide_test,
         by = c("Id_SleepDay_UID"),
         all = TRUE
     )
@@ -385,49 +410,31 @@ sleepDay_comp <- sleep_sum_days_wide %>%
     filter(!(recordDiff == 0 & sleepDiff == 0 & bedDiff == 0)) %>%
     arrange(Id_SleepDay_UID)
 
-# For this table, glimpse() shows enough to demonstrate the validity of the method
+cat("Printing all rows with non-zero diff values:\n")
 glimpse(sleepDay_comp)
-rm(sleep_src_mins_tall_NW, sleepDay_comp)
+rm(sleep_sum_days_wide_test, sleepDay_comp)
+
 ```
 
-I was able to recreate the existing sleep_src_mins_tall table almost perfectly by summing sleep times per Log ID, with the latest date associated with each Log ID being used as the "date" for that sleep. In practice it turns out I had the mapping inverted, and actually the following is used:
+The two +500-minute values were investigated and found to be the result of double-sampling in the data. That day had two duplicate logs, which in the original sum data was presented as two duplicate rows with the accurate 500-minute value, and in my data was presented as two rows with the full 1000 minutes of data summed. All other rows were identical to or within 22 minutes of the original, which I considered accurate enough to validate the mapping.
 
-* 1: Asleep
-* 2: Restless
-* 3: Awake
+# REVIEW: Step 3: Clean
+## Data Cleaning Checklist
 
-So I guess read that as "1 is highest-quality sleep, 3 is worst-quality".
+The following broad cleaning steps were taken:
 
-My version of the data contains a few rows that vary slightly from the original, by 1 to 22 minutes. I haven't been able to determine the source of this error, but they're more than close enough to confirm I don't have the factor level mapping backwards, so I'm ready to proceed.
+* Updated CSV file names to new standard
+* Removed missing data
+  * The "bodycomp_src_logs_wide" table was found to be missing the majority of the entries for the body-fat percentage variable: this variable will not be used in the analysis.
+* Cleaned and updated variable names
+* Removed duplicate data
+* Recast mismatched variable data types
+* Trimmed leading or trailing characters
+* Validated numeric data
 
-### Duplicate data between tables
+These steps are further detailed in the sections below.
 
-The data set includes some tables that contain source data for a given feature, e.g. heart-rate tracking, and others that contain summary data, e.g. everything in the "activity_days_sum_wide" table. 
-
-Some of these are useful, for instance: 
-
-* dailyActivities_merged.csv calculates Sedentary Minutes by excluding time spent asleep. This either requires clever/time-consuming cross-referencing with other tables, or is raw data from a calculation performed on the FitBit itself: either way, I don't want to have to do it again
-* sleepDay_merged.csv summarises sleep on a per-night basis, which is more useful for comparing users than the raw, minute-by-minute sleep data
-
-Others are not useful, for instance: 
-
-* calories_sum_mins_wide.csv, intensity_sum_mins_wide.csv, and steps_sum_mins_wide.csv all just pivot minute-level data into one 60-column row per hour containing the same data
-* minuteIntensitiesWide_merged.csv just sums and averages intensity per hour
-
-Those tables that do not provide useful summaries can be excluded from the data analysis: if a specific need is found for their data, they can be reloaded or recreated manually as required.
-
-### Duplicate data within tables
-
-The "bodycomp_logs_src_wide.csv" file contains both kilogram and pound variables: these describe the same information, and all of the observations contain values for both variables, so one variable can be dropped with no loss of data. The choice between the two formats seems arbitrary for my analysis, so I'm choosing to keep the kilos data as its expressed in an SI unit.
-
-intensity_sum_hours_wide.csv contains Total Intensity and Average Intensity. Total intensity values exceed 4, the maximum for intensity, and so are not actually useful. Average Intensity is just the Total Intensity for each hour divided by 60 minutes per hour.
-
-# Step 3: Clean
-## TODO: Data Cleaning Checklist
-
-* Convert list into changelog format
-
-## Update file names
+## Update CSV file names to new standard
 
 For this analysis, I'll rename the files to use this naming convention:
 
@@ -458,25 +465,14 @@ Applying the naming convention to the data set yields the following file names:
 
 The conversion was performed manually on my local device.
 
-```{r glimpse_data, include=FALSE, eval=FALSE}
-# Glimpse all data frames for a quick overview of the data set
-# Omitted from report and evaluation: for personal viz purposes only
-for (name in df_names) {
-    df <- get(name)
-    cat("\n", "Dataframe: ", name, "\n", sep = "")
-    str(df)
-}
-rm(df)
-```
-
-## Check for missing data
+## Remove missing data
 
 Each data frame was checked for NULL values and non-null empty strings. 
 
 The only table with missing data was "bodycomp_src_logs_wide", which was missing all but two of the data points for Body Fat Percentage. Given this lack of data, Body Fat Percentage will be excluded from the data analysis.
 
-```{r remove_nulls}
-# Check for NULLs
+```{r clean-remove-nulls}
+# Remove all NULL and empty-string values
 cat("Checking for NULL/empty values...\n", sep="")
 for (df_name in df_names) {
   df <- get(df_name)
@@ -494,18 +490,13 @@ for (df_name in df_names) {
 }
 cat("Checking for NULL/empty values done.\n", sep="")
 rm(df, df_name, num_nulls, empty_strings, num_empty_strings, df_name)
+
 ```
-
-
-* Looked for NULLs and empty strings. The "bodycomp_src_logs_wide" table was found to be missing the majority of the entries for the body-fat percentage variable: this variable has been excluded from the analysis.
 
 ## Clean and update variable names
 
-Functions and environment variables used in the code below have been omitted for brevity and can be found in Appendix A.
-
-```{r declare_update_variable_names_fns, include=FALSE}
-# Function Declarations ----
-
+```{r clean-declare-var-update-fns}
+# Declare all functions and global variables required for cleaning
 rename_df_variables <- function(df_name, var_mods) {
   cat("Renaming variables in \"",df_name,"\"...\n", sep = "")
   df <- get(df_name)
@@ -534,8 +525,6 @@ rename_df_variables <- function(df_name, var_mods) {
   return(df)
 }
 
-# Global Variable Declarations ----
-
 var_mods <- data.frame(
   var_old = character(0),
   var_new  = character(0),
@@ -544,7 +533,6 @@ var_mods <- data.frame(
 )
 
 # WARNING: Ensure table-specific modifications (tbl != "") are positioned above non-specific modifications with matching var_old/var_new values: only the first modification in the list will be applied to matching variables.
-
 var_mods <- var_mods %>%
   rbind(.,data.frame(var_old="date",                       var_new="bodycomp_datetime",          type_new="POSIXct", tbl="bodycomp_src_logs_wide")) %>%
   rbind(.,data.frame(var_old="time",                       var_new="heart_rate_second",          type_new="POSIXct", tbl="heartrate_src_seconds_tall")) %>%
@@ -581,11 +569,11 @@ var_mods <- var_mods %>%
   rbind(.,data.frame(var_old="tracker_distance",           var_new="distance_tracker",           type_new="",        tbl="")) %>%
   rbind(.,data.frame(var_old="very_active_distance",       var_new="distance_very_active",       type_new="",        tbl="")) %>%
   rbind(.,data.frame(var_old="very_active_minutes",        var_new="minutes_very_active",        type_new="",        tbl=""))
+
 ```
 
-```{r update_variable_names}
-## Rename Variables ----
-
+```{r clean-update-variable-names}
+# Clean and update all variables in data set
 cat("Cleaning variable names...\n", sep = "")
 for(df_name in df_names) {
   cat("Cleaning ",df_name,"...\n", sep = "")
@@ -601,13 +589,15 @@ for(df_name in df_names) {
 }
 rm(df_name)
 cat("Renaming variables complete.\n", sep = "")
+
 ```
 
 ## Remove duplicate data
 
 All dataframes were checked for duplicate rows using the anyDuplicated() function, and duplicate rows were removed using the distinct() function. The function was tested using a prototype version that generated dataframes of all of the apparent duplicate rows: these were verified manually before the function was allowed to modify the actual dataframes. The logic was verified again by re-running it after the initial removal: all dataframes reported zero duplicates on the second run, confirming the success of the first pass.
 
-```{r remove_duplicates}
+```{r clean-remove-duplicates}
+# Remove all duplicate data in data set
 cat("Checking for duplicate values...\n",sep="")
 for (df_name in df_names) {
   cat("Checking ",df_name," for duplicates... ",sep="")
@@ -625,6 +615,7 @@ for (df_name in df_names) {
 }
 rm(df, df_name, nrow_before, nrow_after)
 cat("Checking for duplicate values complete.\n",sep="")
+
 ```
 
 ## Recast mismatched variable data types
@@ -642,14 +633,12 @@ cat("Checking for duplicate values complete.\n",sep="")
 | intensity       | num           | factor 0:3   | Disable numerical operations (value is a ranking, not an amount) |
 
 
-```{r update_variable_types_nonfactors}
+```{r clean-update-nonfactor-variable-types}
+# Update non-factor variables
 
-# Global Variable Declarations ----
-
+# Declare required functions and global variables ----
 var_mods_recast <- var_mods %>%
   filter(type_new != "")
-
-# Function Declarations ----
 
 are_identical_lists <- function(list1, list2) {
   if (length(list1) != length(list2)) {
@@ -723,7 +712,7 @@ recast_variables <- function(df_name) {
   return(df)
 }
 
-# Recast Variables ----
+# Recast variables ----
 
 cat("Generating list of target column types for testing...\n", sep = "")
 df_types_target <-lapply(df_names, get_df_target_var_types)
@@ -738,7 +727,7 @@ for (df_name in df_names) {
 }
 cat("Recasting variables complete.\n", sep = "")
 
-# Test Recasting of Variables ----
+# Test recasting of variables ----
 
 cat("Generating list of updated column types...\n", sep = "")
 df_types_after <- lapply(df_names, get_df_var_types)
@@ -750,15 +739,17 @@ test_succeeded <- are_identical_lists(df_types_after, df_types_target)
 cat("Checking updated column types against target types complete.\n", sep = "")
 cat("Data recasting ", case_when(test_succeeded ~ "succeeded", TRUE ~"failed"), ".", sep = "")
 rm(df_name, df_types_target, df_types_after, test_succeeded)
+
 ```
 
-``` {r update_variable_types_factors}
-# Individual recast of variables with only one occurrence
+```{r clean-update-factor-variable-types}
+# Recast unique factor variables individually
 sleep_src_mins_tall <- sleep_src_mins_tall %>%
     mutate(sleep_rank = factor(sleep_rank, levels = 1:3, labels = c("Asleep", "Restless", "Awake")))
 
 intensity_src_mins_tall <- intensity_src_mins_tall %>%
     mutate(intensity = factor(intensity, levels = 0:3, labels = c("Sedentary", "Lightly Active", "Fairly Active", "Very Active")))
+
 ```
 
 Given the large number of variables in the data set, the recasting procedure includes test code to confirm the updated variable types match the types specified in the variable mods list. The test code works by first generating a list of the desired final variable/type pairs, then, once the conversion is completed, generating a second list of the actual variable/type pairs in the data frames to compare it to. This has the advantage of not just confirming the desired conversions took place, but also checks for any unintended changes to variables that did not require conversion.
@@ -771,7 +762,8 @@ Building the test code added a decent amount of work to the project, but now I h
 * Automated trim of variable names
 * Automated trim of character-type data entries
 
-```{r trim_whitespace_variables}
+```{r clean-trim-whitespace-variables}
+# Trim variable names
 cat("Trimming whitespace in variable names...\n", sep="")
 for (df_name in df_names) {
   df <- get(df_name)
@@ -784,9 +776,11 @@ for (df_name in df_names) {
 }
 rm(df, df_name, col_name, col_name_trimmed)
 cat("Trimming whitespace in variable names complete.\n", sep="")
+
 ```
 
-```{r trim_whitespace_data}
+```{r clean-trim-whitespace-data}
+# Trim data
 trim_chr_column <- function(col) {
   if (is.character(col)) {
     return(str_trim(col))
@@ -809,7 +803,9 @@ for (df_name in df_names) {
 }
 rm(df, df_name, col_name)
 cat("Trimming whitespace in character-type data values complete.\n", sep="")
+
 ```
+
 ## Validate numeric data
 
 Given that the data was not entered manually by the user, there's no way for me to manually check the correctness of all of the numeric values included in the data set. The values were instead checked against pre-determined limits to verify that they fall within realistic ranges, as detailed below.
@@ -826,7 +822,8 @@ I wrote a short function to validate the length of all rows in a data frame for 
 
 The validation confirmed all values were the correct length.
 
-```{r validate_ID_lengths}
+```{r clean-validate-ID-lengths}
+# Validate ID lengths
 validate_string_length <- function(df_name, col_name, valid_length) {
   cat("Checking ",df_name," for invalid ",col_name," values... ",sep="")
   df <- get(df_name)
@@ -847,13 +844,15 @@ result <- map(df_names, ~validate_string_length(.x, col_name = "id", valid_lengt
 result <- map(df_names, ~validate_string_length(.x, col_name = "sleep_log_id", valid_length = 11))
 result <- map(df_names, ~validate_string_length(.x, col_name = "bodycomp_log_id", valid_length = 13))
 rm(result)
+
 ```
 
 To further validate the large number of ID data points in the data set, I wrote a short function to check all ID variables in each data frame and determine the minimum and maximum values. The intent was to identify any possible erroneous values within the acceptable length limits, e.g. all zeroes or all nines. The function makes use of the direct conversion of strings to numerals in the min() and max() functions to carry out the comparison on character-type values.
 
 The validation confirmed all values were within a realistic range.
 
-```{r validate_ID_ranges}
+```{r clean-validate-ID-ranges}
+# Validate ID ranges
 cat("Checking min/max ID value ranges...\n",sep="")
 id_col_names <- c("id", "sleep_log_id", "bodycomp_log_id")
 for (df_name in df_names) {
@@ -866,14 +865,15 @@ for (df_name in df_names) {
 }
 rm(df, df_name, col_name, id_col_names)
 cat("Checking min/max ID value ranges complete.\n",sep="")
+
 ```
 
 ### Dates are all within range
 
 The data set is described as containing data from users collected between "03.12.2016-05.12.2016": all records in the data set were validated against this date range.
 
-```{r validate_all_dates}
-
+```{r clean-validate-all-dates}
+# Validate date data
 validate_dates <- function(df_name) {
   valid_dates_stt <- as.Date("2016-03-12", format = "%Y-%m-%d")
   valid_dates_end <- as.Date("2016-05-14", format = "%Y-%m-%d")
@@ -903,6 +903,7 @@ validate_dates <- function(df_name) {
 
 result <- lapply(df_names, validate_dates)
 rm(result)
+
 ```
 
 This check found dates just outside the range, dating up to 8am on 05.13.2016, the day after the data set supposedly ended. I didn't consider this to be a problem, so the valid end-date was updated to the 14th of May 2016 accordingly, and all dates passed this check.
@@ -921,7 +922,8 @@ Checklist:
   
 First, a check for negative values was run on all numeric columns in the data set.
 
-```{r validate_all_numeric}
+```{r clean-validate-all-numeric}
+# Validate all numeric data
 validate_numerics <- function(df_name) {
   # This function performs all checks on numeric values that are required in more than one data-frame, e.g. non-negativity and summation
   cat("Validating numerics for ",df_name,"... ",sep="")
@@ -946,6 +948,7 @@ validate_numerics <- function(df_name) {
 
 result <- lapply(df_names, validate_numerics)
 rm(result)
+
 ```
 
 Results:
@@ -956,7 +959,9 @@ Second, variable-specific checks were run to confirm the data fell within realis
 
 Note: The maximum values given are used as thresholds above which values may not be realistic, not as hard limits for acceptability: a heart-rate of 200bpm, for example, is entirely possible, but it is high enough that I would want to check if the data point corresponded to a period of high-intensity exercise.
 
-```{r validate_specific_numeric}
+```{r clean-validate-specific-numeric}
+# Perform additional validation on specific numeric data
+
 # For a given list of dfs, column names, and a min-max range, check all matching columns in all matching dfs against that range
 validate_within_range <- function(df_name, column_names, range_min, range_max) {
   df <- get(df_name)
@@ -1064,6 +1069,7 @@ range_max  <- 200 # Chosen based on average 100% heart-rate for a 20 y.o. (Sourc
 result <- map(valid_df_names, ~validate_within_range(.x, valid_col_names, 0, range_max))
 
 rm(range_max, result, valid_df_names, valid_col_names)
+
 ```
 
 Results:
@@ -1076,62 +1082,7 @@ Results:
   * Calories: 21 records showed caloric burns of over 4000 calories. All but one of those were associated with very high levels of activity: the outlier showed only 30 minutes total as "Very Active" or "Lightly Active", compared to 120+ minutes for all other records. It does show 15km distance covered that day, which is nearly a third of a marathon, so for now it makes enough sense to keep it in, and I will analyse it further after the cleaning stage.
   * Heart-rate: 13 records were found with a heart-rate between 200 and 203, all of which corresponded to a single user over a 30-minute period of "Very Active" intensity.
   * METs: Every value was out of range for the original limit of 12 METs, chosen as it was the highest listed MET value for any activity in the source data. The smallest repeated value in the data was 10. This suggests my interpretation of the data logged for this variable is wrong.
-  
-#### Validating the METs data
 
-* In theory, METs are a rate of energy expenditure: if you expend energy at a rate of 3 METs, that value doesn't change whether you maintain it for a minute or an hour
-* The highest MET value for any given activity in the sources I used was 12, for sustained "heavy" squash playing
-* My initial assumption was that the MET values in the data were the average MET rate for the sampling period, in this case one minute
-* The data points, however, were listing MET values as high as 157
-* This suggested the values were not averages but rather some sum or projected sum, e.g. projected MET-hours based on the average over the minute.
-* Searching through the product manuals again revealed no information on METs at all. A [Help article](https://help.fitbit.com/articles/en_US/Help_article/1379.htm) was the only other official reference to METs that I could find: it implies that METs are used to calculate "Active Minutes", and that Active Minutes count double in higher heart-rate zones, but no specific mathematical relationship between the two was described.
-
-With this in mind, I attempted to corroborate the METs data by plotting it against other related data, specifically calories-burned and heart-rate. Individual charts were plotted for each user ID.
-
-```{r interpret_MET_data, eval=FALSE}
-# Generate minute-level summary heart-rate data for merging with calorie/
-heartrate_sum_minutes_tall <- heartrate_src_seconds_tall %>% 
-  mutate(activity_minute = floor_date(heart_rate_second, unit = "minute")) %>%
-  group_by(id, activity_minute) %>%
-  summarize(heart_rate_mean = mean(heart_rate))
-
-mets_vs_heart_rate <- mets_src_mins_tall %>%
-  merge(., intensity_src_mins_tall, by = c("id", "activity_minute")) %>%
-  merge(., heartrate_sum_minutes_tall, by = c("id", "activity_minute"))
-
-mets_vs_calories <- mets_src_mins_tall %>%
-  merge(., intensity_src_mins_tall, by = c("id", "activity_minute")) %>%
-  merge(., calories_src_mins_tall, by = c("id", "activity_minute"))
-
-plot_mets_vs_heartrate <- ggplot(data = mets_vs_heart_rate) +
-  geom_point(mapping=aes(x=heart_rate_mean, y=mets, shape=intensity, color=intensity)) +
-  geom_smooth(mapping=aes(x=heart_rate_mean, y=mets), method = "lm", se = FALSE, color = "blue") +
-  stat_cor(aes(x=heart_rate_mean, y=mets, label=..rr.label..), label.x=0, label.y=50) +
-  facet_wrap(vars(id))
-print(plot_mets_vs_heartrate)
-
-plot_mets_vs_calories <- ggplot(data = mets_vs_calories) +
-  geom_point(mapping=aes(x=calories,y=mets, shape=intensity, color=intensity)) +
-  # geom_smooth(mapping=aes(x=calories,y=mets), method = "lm", se = FALSE, color = "blue") +
-  stat_cor(aes(x=calories, y=mets, label=..rr.label..), label.x=0, label.y=50) +
-  facet_wrap(vars(id))
-print(plot_mets_vs_calories)
-
-plot_mets_vs_intensity <- ggplot(data = mets_vs_calories) +
-  geom_point(mapping=aes(x=intensity,y=mets)) +
-  # geom_smooth(mapping=aes(x=calories,y=mets), method = "lm", se = FALSE, color = "blue") +
-  #stat_cor(aes(x=calories, y=mets, label=..rr.label..), label.x=0, label.y=50) +
-  facet_wrap(vars(id))
-print(plot_mets_vs_intensity)
-
-```
-
-Results:
-
-* There was a clear positive correlation between heart-rate and METs, with R^2 values ranging from 0.43 to 0.82
-* A much tighter positive correlation was present between calories and METs, with R^2 values of 1 across all user ID values.
-
-Given the very tight relationship between METs and calories, and the unclear sampling method used to generate the MET data, I decided to keep the METs data as-is, and consider all values as valid for the purposes of cleaning..After cleaning the data, further analysis of the MET data may shed more light on its meaning: in the meantime, the calories, heart-rate, and intensity variables can be used to analyse energy expenditure and activity type.
   
 #### Sources used to determine realistic limits for numerical values
 Sources for ranges:
@@ -1143,8 +1094,7 @@ Sources for ranges:
   * METs: https://www.hsph.harvard.edu/nutritionsource/staying-active/, https://onlinelibrary.wiley.com/doi/epdf/10.1002/clc.4960130809
 
 
-# TODO Step 4: Analyse
-
+# REVIEW: Step 4: Analyse
 ## Method
 
 Use the advertised features of the Ivy to guide the analysis
@@ -1153,7 +1103,8 @@ Use the advertised features of the Ivy to guide the analysis
 
 These are generic functions I developed for use during the analysis. They are declared here to be made available to subsequent code chunks.
 
-```{r declare_util_fns}
+```{r analyse-util-fns}
+# Declare generic functions for analysis
 round_data_to_bin <- function(data, bin_width) {
   rounding_factor <- 1 / bin_width
   return(round(data * rounding_factor) / rounding_factor)
@@ -1177,9 +1128,10 @@ rescale_plot <- function(p, x_min = 0, x_max = 10, x_step = 1, y_min = 0, y_max 
                        limits=c(y_min, y_max))
   return(p)
 }
+
 ```
 
-```{r declare_plot_histo_pareto_fn}
+```{r analyse-plot-histo-pareto-fn}
 plot_histo_pareto <- function (data, bin_width) {
   # Cumulative data uses same bins as histogram
   data <- sort(data)
@@ -1221,7 +1173,7 @@ plot_histo_pareto <- function (data, bin_width) {
 }
 ```
 
-``` {r declare_plot_time_coefficients_fn}
+```{r analyse-plot-time-coefficients-fn}
 get_time_coefficients <- function(ids, timestamps, values) {
   tbl <- tibble(
     id = ids,
@@ -1271,7 +1223,7 @@ get_time_coefficients_plot <- function(ids, timestamps, values) {
 }
 ```
 
-```{r declare_plot_wide_data_to_stacked_bar_fn}
+```{r analyse-plot-wide-data-to-stacked-bar-fn}
 wide_to_stacked_bar_plot <- function(data_wide, key, value, key_order) {
   if(!("id" %in% colnames(data_wide))) {
     print("ERROR: data does not include \"id\" column: cannot convert.")
@@ -1298,7 +1250,7 @@ wide_to_stacked_bar_plot <- function(data_wide, key, value, key_order) {
 }
 ```
 
-```{r declare_plot_scatter_with_LOBF_fn}
+```{r analyse-plot-scatter-with-LOBF-fn}
 scatter_with_LOBF <- function(data_x, data_y, labels = NULL) {
   data <- tibble(
     x = data_x,
@@ -1479,7 +1431,8 @@ mean_daily_intensities_long$id <- factor(
 ```{r viz_proportion_intensity}
 viz_very_active_proportion <- plot_histo_pareto(mean_daily_intensities_wide$proportion_very_active,
                                                 bin_width = 0.1) +
-  labs(title = "Percentage of Active Time spent Very Active")
+  labs(title = "Percentage of Active Time spent Very Active",
+       x = "% Very Active")
 print(viz_very_active_proportion)
 ```
 
@@ -1493,65 +1446,26 @@ Preliminary Findings:
 The proportion of Active Time spent Very Active was plotted against the total Active Time to see if there was a correlation. From the earlier analysis of overall Active Hours per week, we can see that Active Hours are skewed right and concentrated towards the lower end: given this distribution, I also re-ran the analysis twice, once with the upper quintile of users removed, and once with the lower quintile removed. The results are plotted below.
 
 ```{r analyse_logged_minutes_vs_intensity}
-plot_all_data <- ggplot(mean_daily_intensities_wide, aes(x=total_active, y=proportion_very_active)) +
-  geom_point() +
-  geom_smooth(method = "lm",
-              se = FALSE,
-              color = "blue") +
-  stat_cor(aes(label=..rr.label..),
-           label.x=0,
-           label.y=0) +
-  labs(title="Proportion Very Active vs. Total Active Time",
-       x = "Average Weekly Active Time (hours)",
-       y = "Proportion of Very Active Time (%)")
+
 ```
 
 ```{r viz_logged_minutes_vs_intensity}
-data <- mean_daily_intensities_wide %>%
-  filter(total_active <= 1.25) # id != "3977333714")
-
-plot_no_upper_quint <- ggplot(data, aes(x=total_active, y=proportion_very_active)) +
+viz_very_active_vs_total_active <- ggplot(mean_daily_intensities_wide, aes(x=total_active, y=proportion_very_active)) +
   geom_point() +
   geom_smooth(method = "lm",
               se = FALSE,
               color = "blue") +
   stat_cor(aes(label=..rr.label..),
-           label.x=0,
-           label.y=0) +
-  labs(title="Proportion Very Active vs. Total Active Time (Highest Quintlie Removed)",
-       x = "Average Weekly Active Time (hours)",
-       y = "Proportion of Very Active Time (%)")
-
-data <- mean_daily_intensities_wide %>%
-  filter(total_active > 0.25) # id != "3977333714")
-
-plot_no_lower_quint <- ggplot(data, aes(x=total_active, y=proportion_very_active)) +
-  geom_point() +
-  geom_smooth(method = "lm",
-              se = FALSE,
-              color = "blue") +
-  stat_cor(aes(label=..rr.label..),
-           label.x=0,
-           label.y=0) +
-  labs(title="Proportion Very Active vs. Total Active Time (Lowest Quintile Removed)",
-       x = "Average Weekly Active Time (hours)",
-       y = "Proportion of Very Active Time (%)")
-
-rm(data)
-
-viz_very_active_vs_total_active <- plot_all_data + 
+           label.x=Inf,
+           hjust = 1,
+           label.y= Inf,
+           vjust = 1) +
   scale_x_continuous(limits=c(0,2)) + 
-  scale_y_continuous(limits=c(0,1))
+  scale_y_continuous(limits=c(0,1)) +
+  labs(title="Proportion Very Active vs. Total Active Time",
+       x = "Average Weekly Active Time (hours)",
+       y = "Proportion of Very Active Time (%)")
 print(viz_very_active_vs_total_active)
-
-# plot_no_upper_quint <- plot_no_upper_quint + 
-#   scale_x_continuous(limits=c(0,2)) + 
-#   scale_y_continuous(limits=c(0,1))
-# plot_no_lower_quint <- plot_no_lower_quint + 
-#   scale_x_continuous(limits=c(0,2)) + 
-#   scale_y_continuous(limits=c(0,1))
-# 
-# grid.arrange(viz_very_active_vs_total_active, plot_no_upper_quint, plot_no_lower_quint, ncol = 3)
 ```
 
 Preliminary Findings: 
@@ -1559,6 +1473,57 @@ Preliminary Findings:
 * Removing the upper quintile decreased the correlation to 0.23, indicating that those doing less exercise also do a wider range of intensities
 * Removing the lower quintile increased the correlation to 0.32, indicating that those doing the most exercise are doing a narrower range of higher-intensity activities.
 * Overall, the results indicate that the majority of the cohort is engaged in a wide range of activities. There is a large subset of the group doing a low amount of varied exercise, as well as a small group of outliers doing a higher amount of more-intense exercise.
+
+#### Do people increase their activity over time?
+
+```{r analyse_intensity_over_time}
+# For each intensity level, obtain time coefficients per ID
+
+lightly_active_time_coeffs <- get_time_coefficients(
+  activity_sum_days_wide$id,
+  activity_sum_days_wide$activity_day,
+  activity_sum_days_wide$minutes_lightly_active
+  ) %>%
+  mutate(intensity = "lightly_active")
+
+fairly_active_time_coeffs <- get_time_coefficients(
+  activity_sum_days_wide$id,
+  activity_sum_days_wide$activity_day,
+  activity_sum_days_wide$minutes_fairly_active
+  ) %>%
+  mutate(intensity = "fairly_active")
+
+very_active_time_coeffs <- get_time_coefficients(
+  activity_sum_days_wide$id,
+  activity_sum_days_wide$activity_day,
+  activity_sum_days_wide$minutes_very_active
+  ) %>%
+  mutate(intensity = "very_active")
+
+# Bind coefficients into long-format data frame for visualisation
+intensity_time_coeffs <- rbind(
+  lightly_active_time_coeffs,
+  fairly_active_time_coeffs,
+  very_active_time_coeffs
+)
+```
+
+```{r viz_intensity_over_time}
+viz_all_intensity_over_time <- ggplot(intensity_time_coeffs) +
+  theme_minimal() +
+  geom_freqpoly(aes(x = correlation,
+                     color = intensity),
+                 binwidth = 0.1,
+                size = 1) +
+  scale_x_continuous(breaks = seq(-1, 1, by = 0.1)) +
+  scale_y_continuous(breaks = seq(0, 10, by = 1)) +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  labs(title = "Coefficient of Active Hours with Time, by Intensity",
+       x = "Correlation with Time",
+       y = "Users")
+print(viz_all_intensity_over_time)
+```
 
 #### Do people prefer to walk or run?
 
@@ -1612,6 +1577,21 @@ ggplot(mean_movement_times_long %>% filter(speed != "not_walking"),
        x = "User ID",
        y = "Average Daily Hours")
 
+viz_walking_speed_frequency <- ggplot(mean_movement_times_long %>% filter(speed != "not_walking")) +
+  theme_pubclean() +
+  geom_histogram(aes(x = mean_hours,
+                     fill = speed),
+                 binwidth = 0.25,
+                 position = "dodge",
+                 # width = 0.3,
+                 color = "black") +
+  scale_x_continuous(breaks = seq(0, 5, by = 0.25)) +
+  # theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Frequency of Average Walking Hours by Walking Speed",
+       x = "Mean Hours",
+       y = "Users")
+print(viz_walking_speed_frequency)
+
 viz_mean_mod_walking <- plot_histo_pareto(mean_movement_times$moderate_walking,
                                       bin_width = 0.25) +
   labs(title = "Average Moderate Walking Hours per Week",
@@ -1660,10 +1640,64 @@ viz_mean_running_vs_time <- get_time_coefficients_plot(mean_movement_times_daily
                                                     mean_movement_times_daily$running) +
   labs(title = "Running Over Time")
 
+
+
 grid.arrange(viz_mean_mod_walking_vs_time,
              viz_mean_brisk_walking_vs_time,
              viz_mean_running_vs_time,
              nrow = 3)
+```
+
+```{r viz_all_walking_over_time}
+mod_walking_time_coeffs <- get_time_coefficients(
+  mean_movement_times_daily$id,
+  mean_movement_times_daily$activity_day,
+  mean_movement_times_daily$moderate_walking
+  ) %>%
+  mutate(speed = "moderate_walking")
+
+brisk_walking_time_coeffs <- get_time_coefficients(
+  mean_movement_times_daily$id,
+  mean_movement_times_daily$activity_day,
+  mean_movement_times_daily$brisk_walking
+  ) %>%
+  mutate(speed = "brisk_walking")
+
+running_time_coeffs <- get_time_coefficients(
+  mean_movement_times_daily$id,
+  mean_movement_times_daily$activity_day,
+  mean_movement_times_daily$running
+  ) %>%
+  mutate(speed = "running")
+
+walking_time_coeffs <- rbind(
+  mod_walking_time_coeffs,
+  brisk_walking_time_coeffs,
+  running_time_coeffs
+)
+
+viz_all_walking_over_time <- ggplot(walking_time_coeffs) +
+  theme_minimal() +
+  geom_freqpoly(aes(x = correlation,
+                     color = speed),
+                 binwidth = 0.1,
+                size = 1) +
+  scale_x_continuous(breaks = seq(-1, 1, by = 0.1)) +
+  scale_y_continuous(breaks = seq(0, 10, by = 1)) +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  labs(title = "Coefficient of Walking Hours with Time (By Speed)",
+       x = "Correlation with Time",
+       y = "Users")
+print(viz_all_walking_over_time)
+
+# ggplot(walking_time_coeffs) +
+#   geom_histogram(aes(x = correlation,
+#                      fill = speed),
+#                  binwidth = 0.1,
+#                  position = "dodge",
+#                  color = "black") +
+#   scale_x_continuous(breaks = seq(-1, 1, by = 0.1))
 ```
 
 Preliminary Findings:
@@ -1695,7 +1729,9 @@ Answer: Typically 7500.
 viz_mean_daily_steps_vs_time <- get_time_coefficients_plot(steps_sum_days_tall$id,
                                                 steps_sum_days_tall$activity_day,
                                                 steps_sum_days_tall$steps_total) +
-  labs(title = "Correlation between Step Counts and Time")
+  theme_pubclean() +
+  labs(title = "Correlation between Step Counts and Time",
+       y = "Users")
 print(viz_mean_daily_steps_vs_time)
 ```
 
@@ -1793,7 +1829,8 @@ Preliminary Findings:
 
 For each user, I calculated the number of nights where the total sleep time logged was greater than 6 hours: this value was picked as being close enough to the recommended 8 hours of sleep to indicate the user did actually go to bed with their device on, but not so high that it would not pick up data from users who don't get a full night's sleep.
 
-```{r analyse_night_usage_sleep_logs}
+```{r analyse-night-usage-sleep-logs}
+# Analyse overnight usage using sleep log data
 hours_asleep <- 6
 total_nights <- 33
 nights_logged_by_sleep_log <- sleep_sum_days_wide %>%
@@ -1818,12 +1855,16 @@ for (id in missing_ids) {
           pct_logged_asleep = 0.0,
           pct_logged_in_bed = 0.0))
 }
+
 ```
 
-```{r viz_night_usage_sleep_logs}
-plot_histo_pareto(nights_logged_by_sleep_log$pct_logged_in_bed, bin_width = 0.05) +
+```{r analyse-viz-night-usage-sleep-logs}
+# Visualise overnight usage using sleep log data
+viz_night_usage_sleep_logs <- plot_histo_pareto(nights_logged_by_sleep_log$pct_logged_in_bed, bin_width = 0.05) +
   labs(title = "Percentage of Nights Logged In Bed - All Users",
        subtitle = "Source: Sleep Log Data")
+print(viz_night_usage_sleep_logs)
+
 ```
 
 Preliminary Findings:
@@ -1841,7 +1882,8 @@ Taking the brute-force approach to plotting the data for each user makes it much
 
 TODO: Widen out this plot
 
-```{r viz_all_heartrate_data, eval=FALSE}
+```{r analyse-viz-all-heartrate-data}
+# Visualise overnight device usage using heart rate data
 data <- heartrate_src_seconds_tall %>%
     mutate(is_nighttime = hour(heart_rate_second) >= 22 | hour(heart_rate_second) < 6)
 p <- ggplot(data) +
@@ -1862,23 +1904,28 @@ ggsave("viz_all_heartrate_data.png",
        units = "px")
 
 rm(data)
+
 ```
 
 Once R is done chewing through the data, we can see that all users have clear gaps in their heart-rate logs.
 
 The heart rate data takes the form of individual polls recording the user's momentary heart rate. This presents a challenge compared to using the summary data, in that these individual logs must be processed to determine when the user was wearing their device continuously. Counting the number of logs over a given time period will not work, as the time between logs varies even when the device is worn. Polling times less than 60 seconds, for example, are typically between 1 and 20 seconds, as shown below:
 
-```{r analyse_heartrate_polling_variance}
+```{r analyse-heartrate-polling-variance}
+# Analyse heartrate polling variance
 heartrate_polling_variance <- heartrate_src_seconds_tall %>%
   group_by(id) %>%
   mutate(polling_diff = as.double(difftime(heart_rate_second, lag(heart_rate_second), units = "secs"))) %>%
   filter(polling_diff < 60)
+
 ```
 
-```{r viz_heartrate_polling_variance}
+```{r analyse-viz-heartrate-polling-variance}
+# Visualise heartrate polling variance
 ggplot(heartrate_polling_variance) +
   geom_boxplot(aes(y = polling_diff)) +
   scale_y_continuous(breaks = seq(0,60,by=5))
+
 ```
 
 This means that even choosing the median value of 5 seconds could result in an inferred "time logged" value that's out by a factor of 5.
@@ -1887,9 +1934,10 @@ To build out the data, I decided on an approach where the time between logs was 
 
 From the polling variance analysis boxplot, we saw that the median, 75th-percentile, and Maximum values were 5 seconds, 10 seconds, and 17 seconds, respectively. Given this range, I selected 20 seconds as the maximum acceptable time between polls.
 
-```{r analyse_night_usage_heartrate}
-# Find nights where enough heart-rate data was logged to imply the user slept with their FitBit on
+```{r analyse-night-usage-heartrate}
+# Analyse overnight usage using heart rate data
 
+# Find nights where enough heart-rate data was logged to imply the user slept with their FitBit on
 sec2hour <- 1 / 3600
 # Sleep range set to between 10pm and 6am
 sleep_range_stt_hour <- 22
@@ -1919,40 +1967,29 @@ nights_logged_by_heart_rate <- heartrate_src_seconds_tall %>%
   group_by(id) %>%
   summarize(nights_logged = sum(logged_time_hours > min_hours_logged),
             nights_logged_pct = nights_logged / nights_total)
+
 ```
 
-```{r viz_night_usage_heartrate}
+```{r analyse-viz-night-usage-heartrate}
 # Plot histogram showing who logged what fraction of their nights
-plot_histo_pareto(nights_logged_by_heart_rate$nights_logged_pct, bin_width = 0.05) +
+viz_night_usage_heartrate <- plot_histo_pareto(nights_logged_by_heart_rate$nights_logged_pct, bin_width = 0.05) +
   labs(title = "Percentage of Nights Logged In Bed - HR Users Only",
        subtitle = "Source: Heart Rate Data")
-# 
-# # Add missing ID values to the dataset to analyse the full cohort
-# missing_ids <- setdiff(unique(activity_sum_days_wide$id), nights_logged_by_heart_rate$id)
-# for (id in missing_ids) {
-#   nights_logged_by_heart_rate <- nights_logged_by_heart_rate %>%
-#     rbind(.,data.frame(
-#           id = id,
-#           nights_logged = 0,
-#           nights_logged_pct = 0.0))
-# }
-# 
-# # Plot histogram showing who logged what fraction of their nights
-# plot_histo_pareto(nights_logged_by_heart_rate$nights_logged_pct, bin_width = 0.05) +
-#   labs(title = "Percentage of Nights Logged In Bed - All Users",
-#        subtitle = "Source: Heart Rate Data")
+print(viz_night_usage_heartrate)
+
 ```
 
 Given the small number of heart-rate users, I also compared the the heart-rate results directly to the sleep log results to see if there was any difference in the nights logged for individual IDs:
 
-```{r viz_sleep_logs_vs_heartrate_logs}
+```{r analyse-viz-sleep-logs-vs-heartrate-logs}
+# Visualise sleep logs vs heart rate logs
 sleep_data_merged <- merge(nights_logged_by_sleep_log, nights_logged_by_heart_rate, by = "id", all = TRUE) %>%
   select(id, pct_logged_asleep, nights_logged_pct) %>%
   rename(sleep_logs = pct_logged_asleep,
          heartrate_logs = nights_logged_pct)
 sleep_data_merged <- tidyr::gather(sleep_data_merged, key = "Variable", value = "Value", -id)
 
-ggplot(sleep_data_merged, aes(x = id, y = Value, fill = Variable)) +
+viz_sleep_logs_vs_hr_logs <- ggplot(sleep_data_merged, aes(x = id, y = Value, fill = Variable)) +
   geom_bar(stat = "identity", position = "dodge", width = 0.7, color = "black") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
@@ -1961,6 +1998,8 @@ ggplot(sleep_data_merged, aes(x = id, y = Value, fill = Variable)) +
        x = "ID",
        y = "% of Nights Logged",
        fill = "Source")
+print(viz_sleep_logs_vs_hr_logs)
+
 ```
 
 For those IDs present in both data sets, the results were almost identical, with only three users showing variation equating to 2-3 nights, indicating the method is valid.
@@ -1972,7 +2011,6 @@ Preliminary Findings:
 * Out of those users, the results were split, with 50% (7 users) logging sleep on 35% to 90% of nights, and the other 50% logging sleep on 0% to 15% of nights
 * The heart-rate-based analysis produces the same results for individual users as the sleep-log-based analysis
 * Overall, the results reinforce the findings of the sleep-log analysis, but only for the smaller sub-set of users that have devices with heart-rate tracking.
-
 
 ## Sleep Tracking
 ### Feature Overview
@@ -1987,7 +2025,8 @@ From the previous analysis for the Readiness Score feature, we know that sleep t
 * Quantity and quantity can be tracked as time spent Asleep as a percentage of total logged
 * Quality can also be tracked as 
 
-```{r analyse_sleep_quantity}
+```{r analyse-sleep-quantity}
+# Analyse sleep quantity and quality
 sleep_sum_quant_qual <- sleep_src_mins_tall %>%
   # Set the date for sleep logs in the AM to the day before, i.e. the Night Of [date]
   mutate(sleep_date = as.Date(ifelse(hour(sleep_minute) > 12,
@@ -2007,12 +2046,15 @@ sleep_sum_quant_qual_mean <- sleep_sum_quant_qual %>%
   group_by(id) %>%
   summarize(across(.cols = -sleep_date, \(x) mean(x, na.rm = TRUE), .names = "{.col}_mean")) %>%
   mutate(hours_total_mean = minutes_total_mean / 60)
+
 ```
 
-```{r viz_sleep_quantity}
+```{r analyse-viz-sleep-quantity}
+# Visualise sleep quantity
 plot_histo_pareto(sleep_sum_quant_qual_mean$hours_total_mean, bin_width = 1) +
   labs(title = "Average Hours Asleep",
        x = "Hours Asleep")
+
 ```
 
 Preliminary Findings:
@@ -2021,7 +2063,8 @@ Preliminary Findings:
 
 #### What quality of sleep are users getting?
 
-```{r viz_sleep_quality}
+```{r analyse-viz-sleep-quality}
+# Visualise sleep quality
 plot_histo_pareto(sleep_sum_quant_qual_mean$pct_awake_mean, bin_width = 0.05) +
   labs(title = "Percentage of Sleep Logs Spent Awake",
        x= "% of Time")
@@ -2031,6 +2074,7 @@ plot_histo_pareto(sleep_sum_quant_qual_mean$pct_restless_mean, bin_width = 0.05)
 plot_histo_pareto(sleep_sum_quant_qual_mean$pct_asleep_mean, bin_width = 0.05) +
   labs(title = "Percentage of Sleep Logs Spent Asleep",
        x= "% of Time")
+
 ```
 
 Preliminary Findings:
@@ -2040,8 +2084,8 @@ Preliminary Findings:
 
 #### Did sleep quantity or quality improve over time?
 
-```{r viz_sleep_over_time_bruteforce, eval=FALSE}
-# get_time_coefficients_plot <- function(ids, timestamps, values)
+```{r analyse-viz-sleep-over-time-bruteforce, eval=FALSE}
+# Brute-force visualisation of overall sleep quality over time
 ggplot(sleep_sum_quant_qual,
        aes(x = sleep_date,
            y = pct_asleep)) +
@@ -2057,22 +2101,27 @@ ggplot(sleep_sum_quant_qual,
              vjust = 1.1) +
   facet_wrap(vars(id))
 # Brute-force Preliminary Findings: Most lines are flat, with some (5-6) that are slightly down
+
 ```
 
 I analysed sleep quantity and quality over time by calculating the coefficients with time of "total hours asleep" and "percentage of time awake", respectively:
 
-```{r viz_sleep_quantity_over_time}
+```{r analyse-viz-sleep-quantity-over-time}
+# Visualise changes in sleep quantity over time
 get_time_coefficients_plot(sleep_sum_quant_qual$id,
                          sleep_sum_quant_qual$sleep_date,
                          sleep_sum_quant_qual$minutes_asleep) +
   labs(title = "Coefficient of Time: Total Time Asleep")
+
 ```
 
-```{r viz_sleep_quality_over_time}
+```{r analyse-viz-sleep-quality-over-time}
+# Visualise changes in sleep quality over time
 get_time_coefficients_plot(sleep_sum_quant_qual$id,
                            sleep_sum_quant_qual$sleep_date,
                            sleep_sum_quant_qual$pct_asleep) +
   labs(title = "Coefficient of Time: % of Time Asleep")
+
 ```
 
 Preliminary Findings:
@@ -2103,7 +2152,7 @@ From my previous analysis on heart-rate data, we know that overnight heart-rate 
 
 I can adapt the code from the nighttime analysis to investigate daytime usage:
 
-```{r analyse_daytime_heartrate_usage}
+```{r analyse-daytime-heartrate-usage}
 # Find nights where enough heart-rate data was logged to imply the user slept with their FitBit on
 
 sec2hour <- 1 / 3600
@@ -2147,13 +2196,15 @@ periods_logged <- periods_logged %>%
   group_by(id) %>%
   summarize(periods = sum(logged_time_hours > min_hours_logged),
             periods_pct = periods / periods_total)
+
 ```
 
-```{r viz_daytime_heartrate_usage}
+```{r analyse-viz-daytime-heartrate-usage}
 # Plot histogram showing who logged what fraction of their nights
 plot_histo_pareto(periods_logged$periods_pct, bin_width = 0.05) +
   labs(title = "Percentage of Periods Logged",
        subtitle = "Source: Heart Rate Data")
+
 ```
 
 Preliminary Findings:
@@ -2166,7 +2217,9 @@ Preliminary Findings:
 
 First the naive approach: What percentage of various users' time is spent in what heart-rate zone?
 
-```{r analyse_intensity_levels}
+```{r analyse-intensity-levels}
+# Analyse intensity levels
+
 # From the Charge HR manual:
 #   Sedentary = 0-50% Max HR
 #   Lightly Active = 50-70% Max HR
@@ -2174,6 +2227,7 @@ First the naive approach: What percentage of various users' time is spent in wha
 #   Very Active = 85-100% Max HR
 # Max HR = 220 - age
 # Arbitrarily set median age at 30 for initial analysis
+
 assumed_median_age <- 30
 max_heart_rate <- 220 - assumed_median_age
 hr_zone_1 <- 0.5 * max_heart_rate
@@ -2196,9 +2250,11 @@ hr_zone_order = c("sedentary", "lightly_active", "fairly_active", "very_active")
 hr_zone_data_long <- hr_zone_data %>%
   tidyr::gather(key = "hr_zone", value = "count", -id) %>%
   mutate(hr_zone = factor(hr_zone, levels = hr_zone_order))
+
 ```
 
-```{r viz_intensity_levels}
+```{r analyse-viz-intensity-levels}
+# Visualise intensity levels analysis
 ggplot(hr_zone_data_long, aes(x= id, y= count, fill= hr_zone)) +
   geom_bar(stat = "identity",
            position = "fill") +
@@ -2206,6 +2262,7 @@ ggplot(hr_zone_data_long, aes(x= id, y= count, fill= hr_zone)) +
   labs(title="Count of HR Logs by HR Zone",
        x = "User ID",
        y = "Count")
+
 ```
 
 Preliminary Findings:
@@ -2225,64 +2282,135 @@ Several functions and features of the Ivy are not present on the FitBits in the 
 * Wellness Score
 
 
-# TODO Step 5: Share
+# REVIEW: Step 5: Share
 
 In which I present all of my key findings and their supporting visualisations
+
+TODO:
+
+* Replace raw ID strings with letters for brevity
+* Center images in text
+* Pick a consistent theme
+* Add green Cumulative Percentage of Users line to plot_histo_pareto()
+* Standardise Mean/Median captions and 
+
 
 > Most users don't get much exercise
 
 Visualising how much time individual users spent in each zone shows a clear bias towards sedentary and lightly-active zones:
 
-```{r share_avg_time_by_intensity_viz, echo=FALSE}
+```{r share-viz-avg-time-by-intensity, echo=FALSE, fig.dim = c(6, 4), fig.cap = "AYO THIS A FIG.CAP"}
 print(viz_avg_time_by_intensity)
 ```
 
 Visualising the frequency of Active Hours across all users shows a right-skewed distribution, with most users getting little exercise and a small number of outliers logging higher numbers:
 
-```{r share_active_hrs_per_week_viz, echo=FALSE}
+```{r share-viz-active-hrs-per-week, echo=FALSE}
 print(viz_active_hrs_per_week)
 ```
     
-> For those who do exercise, intensity varied widely
+> For those who do exercise, there was no clear preference for low- or high-intensity activities
 
-* Proportion of Active time that is Very Active varies roughly evenly: viz_very_active_proportion
-* More active users are only loosely related to higher-intensity users, with a wider range of times and percentages at the bottom than the top: viz_very_active_vs_total_active
+By visualising Very Active Time as a percentage of Active Time (the sum of Very Active and Fairly Active time), I found a fairly symmetrical, bimodal distribution, with approximately equal numbers of users favouring low- and high-intensity activity:
+
+```{r share-viz-very-active-proportion, echo=FALSE}
+print(viz_very_active_proportion)
+```
+
+More time spent active is only loosely related to more time spent at high intensities, with a wider range of times and percentages at the bottom than the top: 
+
+```{r share-viz-very-active-vs-total-active, echo=FALSE}
+print(viz_very_active_vs_total_active)
+```
 
 > Users get around 7500 steps in per day on average
 
-* viz_mean_daily_steps
+```{r share-viz-mean-daily-steps, echo=FALSE}
+print(viz_mean_daily_steps)
+```
     
-> Walking is much more common than running:
+> Walking is much more popular than running:
 
-* viz_mean_mod_walking, viz_mean_brisk_walking, viz_mean_running
-  
+```{r share-viz-walking, echo=FALSE}
+print(viz_walking_speed_frequency)
+```
+
+> Exercise intensity did not increase over time
+
+```{r share-viz-all-intensity-over-time, echo=FALSE}
+print(viz_all_intensity_over_time)
+```
+
 > Users do not increase their step count, walking time, or walking intensity over time
 
-* viz_mean_mod_walking_vs_time, viz_mean_brisk_walking_vs_time, viz_mean_running_vs_time
-* viz_mean_daily_steps_vs_time
+Average daily steps decreased slightly over time for most users:
+
+```{r share-viz-mean-daily-steps-vs-time, echo=FALSE}
+print(viz_mean_daily_steps_vs_time)
+```
+
+Average time spent walking daily also decreased slightly over time for most users, at all speeds:
+
+```{r share-viz-all-walking-over-time, echo=FALSE}
+print(viz_all_walking_over_time)
+```
 
 > Users prefer to engage in mobile exercise
 
-* viz_distance_vs_activity (requires supporting explanation)
+The data shows a strong correlation between time spent exercising and distance covered, which indicates users prefer mobile exercise; if the opposite was true and users spent their active time stationary, we would have seen more users with higher active minutes but low distance.
 
-> Sleep logging was not common
+```{r share-viz-distance-vs-activity, echo=FALSE}
+print(viz_distance_vs_activity)
+```
 
-* 
+> Sleep logging was not common; among those who did log, usage was spread out
 
-> Among those who did log, usage was spread out
+The majority of users log sleep on no or a minority of nights, with a long tail of users who log an increasing majority of nights:
 
-* This is a similar trend to the exercise data
+```{r share-viz-night-usage-sleep-logs, echo=FALSE}
+print(viz_night_usage_sleep_logs)
+```
 
-> Heart-rate data indicates overnight wear is split between low- and high-frequency users
+Analysis of those users who logged heart-rate data shows a similar trend for overnight heart-rate logging:
+
+```{r share-viz-night-usage-heartrate, echo=FALSE}
+print(viz_night_usage_heartrate)
+```
+
+Sleep logs and heart-rate logs are comparable for users with data for both:
+
+```{r share-viz-sleep-logs-vs-hr-logs, echo=FALSE}
+print(viz_sleep_logs_vs_hr_logs)
+```
+
 > Device comfort may be a factor
 
-# TODO Step 6: Act
+* One possible reason for this is indicated by the manual for the FitBit Surge, which informs the user that ["wearing your tracker 24/7 does not allow your skin to breathe"](https://myhelp.fitbit.com/resource/manual_surge_en_US)
+
+
+
+> Some features cannot be analysed due to a lack of available data
+
+Several functions and features of the Ivy are not present on the FitBits in the data set. Given the lack of data, it's not possible to directly analyse existing user behaviours with respect to these features, which include:
+
+* Respiratory Rate
+* Hydration tracking
+* Mindfulness Minute Tracking
+* Menstrual Cycle
+* Wellness Score
+
+# REVIEW: Step 6: Act
 
 In which I summarise my recommendations
 
 * Push hard on any features not used much as a value-add to the customer
 
 ### Recommendations: Heart Rate Tracking, Activity Tracking, and Step Counts
+
+> Consumer behaviour may be conducive to the Resting Heart Rate feature
+
+* Existing consumers do not make much use of heart rate tracking overnight, despite this being a key part of the functionality of the Resting Heart Rate feature. Consumers do, however, log a lot of day-time data, and the majority of this data indicates low-intensity conditions
+* Current user behaviors are therefore conducive to the Resting Heart Rate feature, but may result in higher-than-expected values as the RHR data will be skewed towards time spent awake rather than time spent asleep
 
 * To appeal to the FitBit market, the marketing for the Ivy's exercise tracking should highlight a broad range of activities ranging from gentle to more intense. The marketing should not target highly-athletic groups, as these represent only a small part of the user base.
 * The marketing for the Ivy should avoid any claims that users will increase their activity levels or their step counts as a result of their purchasing the device, as the data does not support this claim.
@@ -2318,90 +2446,60 @@ In which I summarise my recommendations
 * As discussed with regards to the Readiness score, marketing for any feature that requires overnight wear, like the Cardiac Coherence tracking, should take into account the low utilisation of existing overnight functions like sleep tracking seen in the existing data.
 
 
-# TODO Appendixes
+# Appendices
 
-## Appendix A: Code Snippets
-
-### Clean and update variable names
-
-```{r apdx_declare_update_variable_names_fns, eval=FALSE}
-
-# Function Declarations ----
-
-rename_df_variables <- function(df_name, var_mods) {
-  cat("Renaming variables in \"",df_name,"\"...\n", sep = "")
-  df <- get(df_name)
-  # Check each var name requiring correction against the var names in the df
-  for (i in 1:nrow(var_mods)) {
-    var_old = var_mods$var_old[i]
-    if (!(var_old %in% colnames(df))) {
-      next
-    }
-    # If found, make sure the conversion is applicable to this or all dfs
-    tbl <- var_mods$tbl[i]
-    if (tbl != "" && tbl != df_name) {
-      next
-    }
-    # Perform the conversion if all checks passed
-    var_new = var_mods$var_new[i]
-    cat("df: ",df_name, "\tvar_old: ",var_old,"\t",sep="")
-    cat("var_new: ",var_new,"\t", sep="")
-    cat("tbl: ",tbl,"    ", sep="")
-    cat("Replacing... ", sep = "")
-    df <- df %>% rename(!!var_new := !!var_old)
-    cat("Done.\n", sep = "")
+```{r apdx-fns, include=FALSE}
+# For these appendices, I wrote the following function to reproduce all code chunks with their labels intact for better readability
+# Print code inside a given code chunk with backtick header/footer
+print_chunk_with_label <- function(label) {
+  code <- knitr::knit_code$get(label)
+  if(!is.null(code)) {
+    cat("```{r",label, "}\n")
+    cat(code, sep = "\n")
+    cat("\n```\n\n")
   }
-  rm(i)
-  cat("Renaming variables in \"",df_name,"\" complete.\n", sep = "")
-  return(df)
 }
+```
+## Appendix A: "Prepare" Stage Code
 
-# Global Variable Declarations ----
+```{r prep-apdx-labels}
+prep_apdx_labs <- grep("^prep-", knitr::all_labels(), value = TRUE)
+```
 
-var_mods <- data.frame(
-  var_old = character(0),
-  var_new  = character(0),
-  type_new = character(0),
-  tbl = character(0)
-)
+```{r setup-apdx, ref.label="setup", echo=TRUE, eval=FALSE}
+```
 
-# WARNING: Ensure table-specific modifications (tbl != "") are positioned above non-specific modifications with matching var_old/var_new values: only the first modification in the list will be applied to matching variables.
-# TODO: Eliminate this issue by modifying code to warn/handle conflicting rows
+```{r prep-apdx-code, ref.label=prep_apdx_labs, echo = TRUE, include = TRUE, eval=FALSE}
+```
 
-var_mods <- var_mods %>%
-  rbind(.,data.frame(var_old="date",                       var_new="bodycomp_datetime",          type_new="POSIXct", tbl="bodycomp_src_logs_wide")) %>%
-  rbind(.,data.frame(var_old="time",                       var_new="heart_rate_second",          type_new="POSIXct", tbl="heartrate_src_seconds_tall")) %>%
-  rbind(.,data.frame(var_old="value",                      var_new="heart_rate",                 type_new="",        tbl="heartrate_src_seconds_tall")) %>%
-  rbind(.,data.frame(var_old="date",                       var_new="sleep_minute",               type_new="POSIXct", tbl="sleep_src_mins_tall")) %>%
-  rbind(.,data.frame(var_old="value",                      var_new="sleep_rank",                 type_new="",        tbl="sleep_src_mins_tall")) %>%
-  rbind(.,data.frame(var_old="",                           var_new="activity_hour",              type_new="POSIXct", tbl="")) %>%
-  rbind(.,data.frame(var_old="",                           var_new="activity_minute",            type_new="POSIXct", tbl="")) %>%
-  rbind(.,data.frame(var_old="",                           var_new="sleep_day",                  type_new="POSIXct", tbl="")) %>%
-  rbind(.,data.frame(var_old="",                           var_new="id",                         type_new="character", tbl="")) %>%
-  rbind(.,data.frame(var_old="log_id",                     var_new="sleep_log_id",               type_new="character", tbl="sleep_src_mins_tall")) %>%
-  rbind(.,data.frame(var_old="log_id",                     var_new="bodycomp_log_id",            type_new="character", tbl="bodycomp_src_logs_wide")) %>%
-  rbind(.,data.frame(var_old="activity_date",              var_new="activity_day",               type_new="Date",   tbl="")) %>%
-  rbind(.,data.frame(var_old="fairly_active_distance",     var_new="distance_fairly_active",     type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="fairly_active_minutes",      var_new="minutes_fairly_active",      type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="light_active_distance",      var_new="distance_lightly_active",    type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="light_active_minutes",       var_new="minutes_lightly_active",     type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="lightly_active_distance",    var_new="distance_lightly_active",    type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="lightly_active_minutes",     var_new="minutes_lightly_active",     type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="logged_activities_distance", var_new="distance_logged_activities", type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="me_ts",                      var_new="mets",                       type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="moderately_active_distance", var_new="distance_moderately_active", type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="sedentary_active_distance",  var_new="distance_sedentary",         type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="sedentary_distance",         var_new="distance_sedentary",         type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="sedentary_active_minutes",   var_new="minutes_sedentary",          type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="sedentary_minutes",          var_new="minutes_sedentary",          type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="step_total",                 var_new="steps_total",                type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="total_distance",             var_new="distance_total",             type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="total_intensity",            var_new="intensity_total",            type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="total_minutes_asleep",       var_new="minutes_asleep_total",       type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="total_sleep_records",        var_new="sleep_records_total",        type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="total_steps",                var_new="steps_total",                type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="total_time_in_bed",          var_new="minutes_in_bed_total",       type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="tracker_distance",           var_new="distance_tracker",           type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="very_active_distance",       var_new="distance_very_active",       type_new="",        tbl="")) %>%
-  rbind(.,data.frame(var_old="very_active_minutes",        var_new="minutes_very_active",        type_new="",        tbl=""))
+```{r prep-apdx-code-chunked, eval=FALSE, results='markdown', comment=NA}
+prep_apdx_labs <- grep("^prep-", knitr::all_labels(), value = TRUE)
+invisible(lapply(prep_apdx_labs, print_chunk_with_label))
+```
+
+## Appendix B: "Clean" Stage Code
+
+```{r clean-apdx-labels, include=TRUE}
+clean_apdx_labs <- grep("^clean-", knitr::all_labels(), value = TRUE)
+```
+
+```{r clean-apdx-code, ref.label=clean_apdx_labs, echo = TRUE, include = TRUE, eval=FALSE}
+```
+
+## Appendix C: "Analyse" Stage Code
+
+```{r analyse-apdx-labels, include=TRUE}
+analyse_apdx_labs <- grep("^analyse-", knitr::all_labels(), value = TRUE)
+```
+
+```{r analyse-apdx-code, ref.label=analyse_apdx_labs, echo = TRUE, include = TRUE, eval=FALSE}
+```
+
+## Appendix D: "Share" Stage Code
+
+```{r share-apdx-labels, include=TRUE}
+share_apdx_labs <- grep("^share-", knitr::all_labels(), value = TRUE)
+```
+
+```{r share-apdx-code, ref.label=share_apdx_labs, echo = TRUE, include = TRUE, eval=FALSE}
 ```

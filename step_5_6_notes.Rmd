@@ -52,9 +52,6 @@ print(viz_active_hrs_per_week)
 * Existing consumers do not make much use of heart rate tracking overnight, despite this being a key part of the functionality of the Resting Heart Rate feature. Consumers do, however, log a lot of day-time data, and the majority of this data indicates low-intensity conditions
 * Current user behaviors are therefore conducive to the Resting Heart Rate feature, but may result in higher-than-expected values as the RHR data will be skewed towards time spent awake rather than time spent asleep
 
-
-
-
 ## Exercise
 ### Key Findings
 
