@@ -12,6 +12,8 @@ This analysis was initiated by Urška Sršen, co-founder of Bellabeat. Sršen kn
 
 > Analyse smart device usage data to gain insight into how people are already using smart devices, then generate high-level recommendations for how these insights can inform the marketing strategy for one Bellabeat product.
 
+For this analysis, I chose to produce recommendations for the Bellabeat Ivy. At time of writing this was Bellabeat's most fully-featured product, and the one that most closely aligned with the kind of functionality expected from existing wearable smart devices, so I considered it the product that my available data would be the most directly applicable to.
+
 ## Key Stakeholders
 
 * Urška Sršen
@@ -48,7 +50,7 @@ With these requirements in mind, I considered three tools: R, spreadsheets, and 
 
 Clearly, R is the best single tool for this analysis. R lacks the straightfoward operation of spreadsheet tools, and I will need to learn libraries and programming techniques as I do my analysis, but this is acceptable given my prior experience with other programming languages like Python. 
 
-Note: Python itself was not considered for this analysis: while it shares most of the features, advantages, and disadvantages of R, I'm already familiar with Python and wanted to use this case study to familiarise myself with R instead
+Note: Python itself was not considered for this analysis: while it shares most of the features, advantages, and disadvantages of R, I'm already familiar with Python and wanted to use this case study to familiarise myself with R instead.
 
 ## Setting up my RStudio environment
 
@@ -116,9 +118,7 @@ cat("Set working directory to:", dir, "\n")
 
 For this data analysis, I'll be making use of one public data set specified by Sršen. The data set specified is the [FitBit Fitness Tracker Data Set](https://www.kaggle.com/datasets/arashnic/fitbit). This is a public data set available under the [CC0 License](https://creativecommons.org/share-your-work/public-domain/cc/) via [Kaggle user Mobius](https://www.kaggle.com/arashnic).
 
-For the initial analysis, the data set was downloaded in its entirety from Kaggle and stored locally on my computer. This provided a baseline for analysis, with any modifications to file names, folder re-structuring, or removal of unnecessary data tables to be conducted after I'm familiar with the raw data.
-
-The raw CSV files in the dataset were loaded directly into the environment as data frames.
+For the initial analysis, the data set was downloaded in its entirety from Kaggle and stored locally on my computer. This provided a baseline for analysis, with any modifications to file names, folder re-structuring, or removal of unnecessary data tables to be conducted after I'm familiar with the raw data. The CSV files in the data set were loaded directly into the environment as data frames.
 
 ```{r prep-load-data-cleaned}
 # Load all CSVs in the source directory into the environment
@@ -159,37 +159,46 @@ The database contains data on the following features of the FitBit devices:
 
 The file names in the data set present the following issues:
 
-* Unclear if data is source or summarized, e.g. "minuteCaloriesNarrow_merged.csv" is source data, while "dailyCalories_merged.csv" is summarized data
-* Summarized data not always tied to specific features, e.g. "dailyActivities_merged.csv" contains data summarized from multiple features: there is no "Activity" feature with an associated source data set.
-* Data shape unclear, e.g. "minuteCaloriesNarrow_merged.csv" and "dailyCalories_merged.csv" are both tall data, while "minuteIntensitiesWide_merged.csv" and "dailyIntensities_merged.csv" are both wide data
-* Data sampling rate unclear, e.g. "minuteSleep_merged.csv" compared to "daySleep_merged.csv"
-* Feature is not first in the file name, affecting file sort operations, e.g. "minuteSleep_merged.csv" is sorted closer to "minuteStepsNarrow_merged.csv" than to the related "daySleep_merged.csv"
+* It's unclear if data is source or summarized, e.g. "minuteCaloriesNarrow_merged.csv" is source data, while "dailyCalories_merged.csv" is summarized data
+* Summarized data is not always tied to specific features, e.g. "dailyActivities_merged.csv" contains data summarized from multiple features: there is no "Activity" feature with an associated source data set.
+* Data shape is unclear:
+  * "minuteCaloriesNarrow_merged.csv" and "dailyCalories_merged.csv" are both tall (or "Narrow") data
+  * "minuteIntensitiesWide_merged.csv" and "dailyIntensities_merged.csv" are both wide data
+* Data sampling rate is inconsistently formatted
+  * Compare "heartrate_seconds_merged.csv" to "daySleep_merged.csv"
+* Sample rate usually comes before feature name in the file name, affecting file sort operations
 * All files are suffixed with "_merged", so no distinction is made by this information and it could be dropped
 
 To correct each of these issues, I'll rename the files using this naming convention:
 
 > [feature]\_[src/sum]\_[interval]\_[shape].[filetype]
 
-For example, "sleepDay_merged.csv" will be renamed to "sleep_sum_days_wide.csv".
+For example, "sleepDay_merged.csv" will be renamed to "sleep_sum_days_wide.csv". This format removes the ambiguities in the original file names, and ensures all required information on the contents of the data is included.
 
 #### Inconsistent variable names
 
-All variables in the data set will be changed from CapitalisedCase to snake_case, by convention and to address an issue with inconsistently-capitalised variables (e.g. logId).
+All variables in the data set will be changed from CapitalisedCase to snake_case, by convention and to address an issue with inconsistently-capitalised variables (e.g. logId/logid).
 
 #### Inappropriate variable types
 
 Some of the tables in the data set use variables of a type unsuitable for analysis. These variables and their required modifications are tabulated below:
 
-| Variable       | Original Type | Updated Type | Reason |
-|:---------------|:--------------|:-------------|:-------|
-| ActivityDay    | chr           | datetime     | Cannot perform datetime operations on chr variables |
-| ActivityHour   | chr           | datetime     | Cannot perform datetime operations on chr variables |
-| ActivityMinute | chr           | datetime     | Cannot perform datetime operations on chr variables |
-| Date           | chr           | datetime     | Cannot perform datetime operations on chr variables |
-| Id             | num           | chr          | Disable scientific notation and numerical operations (IDs are not a numeric value) |
-| LogId          | num           | chr          | Disable scientific notation and numerical operations (IDs are not a numeric value) |
-| SleepDay       | chr           | datetime     | Cannot perform datetime operations on chr variables |
-| Time           | chr           | datetime     | Cannot perform datetime operations on chr variables |
+| Variable       | Original Type | Required Type | Issue |
+|:---------------|:--------------|:--------------|:----------------------------------------------------------------------|
+| ActivityDay    | chr           | datetime      | Cannot perform datetime operations on chr variables |
+| ActivityHour   | chr           | datetime      | Cannot perform datetime operations on chr variables |
+| ActivityMinute | chr           | datetime      | Cannot perform datetime operations on chr variables |
+| Date           | chr           | datetime      | Cannot perform datetime operations on chr variables |
+| Id             | num           | chr           | Disable scientific notation and numerical operations (IDs are not a numeric value) |
+| LogId          | num           | chr           | Disable scientific notation and numerical operations (IDs are not a numeric value) |
+| SleepDay       | chr           | datetime      | Cannot perform datetime operations on chr variables |
+| Time           | chr           | datetime      | Cannot perform datetime operations on chr variables |
+
+#### Duplicate data within tables
+
+The "bodycomp_logs_src_wide.csv" file contains both kilogram and pound variables: these describe the same information, and all of the observations contain values for both variables, so one variable can be dropped with no loss of data. The choice between the two formats seems arbitrary for my analysis, so I'm choosing to keep the kilos data as its expressed in an SI unit.
+
+intensity_sum_hours_wide.csv contains Total Intensity and Average Intensity. Total intensity values exceed 4, the maximum for intensity, and so are not actually useful. Average Intensity is just the Total Intensity for each hour divided by 60 minutes per hour.
 
 #### Missing context for numeric variables
 
@@ -199,31 +208,9 @@ All of the numeric variables in the data set have clearly defined units except f
 
 Two variables in the data set, "Intensity" (for exercise) and "Value" (for sleep), are numerical factors with no defined range. For these factors, I couldn't tell from the data alone whether all possible values that a FitBit can record are present. The values for exercise intensity, for example, range from 0 to 3; it could have been the case that the FitBits used only generate four levels of intensity, but it could just as easily have been that the values go up to 100 (i.e. a percentage). This had clear implications for the analysis: if 3 was the max, records of 3 indicated users wear their FitBits while exercising as hard as they can, whereas if 100 was the max, records of 3 indicated users wear their FitBits while sitting on the couch as hard as they can. The meaning of these variables had to be validated before the analysis could continue.
 
-#### Duplicate data between tables
-
-The data set includes some tables that contain source data for a given feature, e.g. heart-rate tracking, and others that contain summary data, e.g. everything in the "activity_days_sum_wide" table. 
-
-Some of these are useful, for instance: 
-
-* dailyActivities_merged.csv calculates Sedentary Minutes by excluding time spent asleep. This either requires clever/time-consuming cross-referencing with other tables, or is raw data from a calculation performed on the FitBit itself: either way, I don't want to have to do it again
-* sleepDay_merged.csv summarises sleep on a per-night basis, which is more useful for comparing users than the raw, minute-by-minute sleep data
-
-Others are not useful, for instance: 
-
-* calories_sum_mins_wide.csv, intensity_sum_mins_wide.csv, and steps_sum_mins_wide.csv all just pivot minute-level data into one 60-column row per hour containing the same data
-* minuteIntensitiesWide_merged.csv just sums and averages intensity per hour
-
-Those tables that do not provide useful summaries can be excluded from the data analysis: if a specific need is found for their data, they can be reloaded or recreated manually as required.
-
-#### Duplicate data within tables
-
-The "bodycomp_logs_src_wide.csv" file contains both kilogram and pound variables: these describe the same information, and all of the observations contain values for both variables, so one variable can be dropped with no loss of data. The choice between the two formats seems arbitrary for my analysis, so I'm choosing to keep the kilos data as its expressed in an SI unit.
-
-intensity_sum_hours_wide.csv contains Total Intensity and Average Intensity. Total intensity values exceed 4, the maximum for intensity, and so are not actually useful. Average Intensity is just the Total Intensity for each hour divided by 60 minutes per hour.
-
 ### Validating "Exercise Intensity"
 
-As discussed above, the exercise-related "Intensity" variable is a numerical factor with no defined range: the limits of the range and meaning of the values must be determined before the analysis can proceed. I'll start by determining the range of values present in the source Intensity data:
+As discussed above, the exercise-related "Intensity" variable is a numerical factor with no defined range: the meaning and limits of this variable had to be determined before the analysis could proceed. I started by determining the range of values present in the source Intensity data:
 
 ```{r prep-get-intensity-range, results = 'markdown'}
 # Display all unique Exercise Intensity values
@@ -231,14 +218,14 @@ print(unique(intensity_src_mins_tall$Intensity))
 
 ```
 
-The "activity_sum_days_wide" table provided some context clues as to what these four levels might mean: the table summarises Intensity data into four new variables which, based on their names, appear to be associated with intensity levels like so:
+The "activity_sum_days_wide" table provided some context clues as to what these four levels might mean: the table summarised Intensity data into four new variables which, based on their names, appeared to be associated with intensity levels as follows:
 
-1. Sedentary Minutes
-2. Lightly Active Minutes
-3. Fairly Active Minutes
-4. Very Active Minutes
+1. Sedentary
+2. Lightly Active
+3. Fairly Active
+4. Very Active
 
-I confirmed this naming convention by using it to reconstruct the daily summary data in "activity_sum_days_wide", then comparing the two tables:
+I confirmed this naming convention by using it to reconstruct the daily summary data in "activity_sum_days_wide", then comparing the two tables and investigating any rows with non-zero differences:
 
 ```{r prep-compare-intensity-data, results = 'markdown'}
 # Reconstruct the summary intensity data for comparison with the original
@@ -296,7 +283,7 @@ I concluded that I got the mapping correct, given that:
 a) The values were consistently higher by at least 6 hours: this appeared to be due to my method counting time asleep as "sedentary minutes", which is reasonable
 b) Reversing the order of the mapping produced entirely wrong results.
 
-That being said, I still don't know if these are the categories FitBits work in, not another naming convention that the data authors came up with, and I don't know if all FitBit models work this way, so let's do something I should have done from the start: read the manuals.
+That being said, I still didn't know if those were the categories FitBits work in, not another naming convention that the data authors came up with, and I didn't know if all FitBit models worked this way. To address this, I referred to the manuals of the relevant FitBits.
 
 Activity trackers like FitBits detect activity intensity partly by measuring the user's heart rate while exercising: a higher heart rate corresponds with a higher degree of exertion. As of April 2016, the three latest FitBit models with heart-rate tracking were:
 
@@ -304,7 +291,7 @@ Activity trackers like FitBits detect activity intensity partly by measuring the
 * FitBit Charge HR [(released January 2015)](https://blog.fitbit.com/charge-hr-and-surge-available-now-plus-new-charge-colors/)
 * FitBit Surge [(released January 2015)](https://blog.fitbit.com/charge-hr-and-surge-available-now-plus-new-charge-colors/)
 
-A quick look through the product manuals for each model confirms they all break down user activity into four default heart-rate zones:
+The product manuals for each model confirmed they all break down user activity into four default heart-rate zones:
 
 |Product|HR Zone 1|HR Zone 2|HR Zone 3|HR Zone 4|
 |:------|:----:|:----:|:----:|:----:|
@@ -312,11 +299,9 @@ A quick look through the product manuals for each model confirms they all break 
 |[FitBit Charge HR](https://staticcs.fitbit.com/content/assets/help/manuals/manual_charge_hr_en_US.pdf)   |"Out of Zone"|"Fat burn"|"Cardio"|"Peak"|
 |[FitBit Surge](https://myhelp.fitbit.com/resource/manual_surge_en_US)                                    |"Out of Zone"|"Fat burn"|"Cardio"|"Peak"|
 
-While these aren't exactly the same terms as used in the data set, they're clearly related - "Out of Zone" equates to "Sedentary", for example. 
+While those weren't exactly the same terms as used in the data set, they were clearly related - "Out of Zone" equated to "Sedentary", for example. 
 
-All three FitBit manuals also make the same claim that the default zones are "based on American Heart Association recommendations". Even without [validating that claim](https://www.heart.org/en/healthy-living/fitness/fitness-basics/aha-recs-for-physical-activity-in-adults), it indicates to me that the reasoning behind each zone is not arbitrary, and is consistent across devices, so I think I can assume any other FitBit models circa 2016 would follow the same classification scheme.
-
-At this point, I'm satisfied that the below are the only four intensity levels I need to consider when analysing the data set, regardless of what models of FitBits were being used:
+All three FitBit manuals also made the same claim that the default zones were "based on American Heart Association recommendations". Even without [validating that claim](https://www.heart.org/en/healthy-living/fitness/fitness-basics/aha-recs-for-physical-activity-in-adults), it indicated to me that the reasoning behind each zone was not arbitrary, and was consistent across devices, so I concluded that any other FitBit models circa 2016 would follow the following classification scheme:
 
 0. Sedentary Minutes
 1. Lightly Active Minutes
@@ -325,7 +310,7 @@ At this point, I'm satisfied that the below are the only four intensity levels I
 
 ### Validating "Sleep Value"
 
-As discussed above, the sleep-related "Value" variable is a numerical factor with no defined range: the limits of the range and meaning of the values must be determined before the analysis can proceed. As with exercise intensity, I start by determining the range of values present in the data:
+As discussed above, the sleep-related "Value" variable is a numerical factor with no defined range: the meaning and limits of this variable had to be determined before the analysis could proceed. As with exercise intensity, I started by determining the range of values present in the data:
 
 ```{r prep-get-sleep-value-range, results = 'markdown'}
 # Display all unique Sleep Value values
@@ -333,30 +318,30 @@ print(unique(sleep_src_mins_tall$value))
 
 ```
 
-The values for sleep quality range from 1 to 3. The summary data tables for sleep quality introduce only two new variable names: "Total Time In Bed", and "Total Minutes Asleep". There's not a valid name for each level of factor like there was for exercise, so in this case we go straight back to the manuals:
+The values for sleep quality range from 1 to 3. The summary data tables for sleep quality introduced only two new variable names: "Total Time In Bed", and "Total Minutes Asleep". There wasn't a valid name for each level of factor like there was for exercise, so in this case I referred straight back to the manuals:
 
 * Blaze: tracks "both your time spent asleep and your sleep quality"
 * Charge HR: tracks "the hours you sleep and your movement during the night"
 * Surge: tracks "the hours you sleep and your movement during the night"
 
-Further poking around the FitBit help pages on [how to track sleep stats](https://help.fitbit.com/articles/en_US/Help_article/1314.htm) and [what they all mean](https://help.fitbit.com/articles/en_US/Help_article/2163.htm) reveals that different devices track slightly different data if they have heart rate tracking:
+Further research in the FitBit help pages on [how to track sleep stats](https://help.fitbit.com/articles/en_US/Help_article/1314.htm) and [what they all mean](https://help.fitbit.com/articles/en_US/Help_article/2163.htm) revealed that different devices track slightly different data if they have heart rate tracking:
 
 * No HR tracking: Generic sleep quality tracking with "Time spent awake, restless, and asleep" categories
 * HR tracking: Sleep stage tracking with "Light Sleep, Deep Sleep, and REM Sleep" stages
 
-The help pages also single out the Charge HR and the Surge as the only HR-tracking FitBits to _not_ have full sleep stage tracking, leaving the Blaze as the only device from this time period with that feature. Blaze aside, motion-based sleep quality tracking appears to go all the way back to the [FitBit One](https://myhelp.fitbit.com/s/products?language=en_US&p=one). Given this information, it seems fair to assume the following mapping for the sleep data:
+The help pages also singled out the Charge HR and the Surge as the only HR-tracking FitBits to _not_ have full sleep stage tracking, leaving the Blaze as the only device from this time period with that feature. Blaze aside, motion-based sleep quality tracking appeared to go all the way back to the [FitBit One](https://myhelp.fitbit.com/s/products?language=en_US&p=one). Given this information, I concluded that any other FitBit models circa 2016 would follow the following classification scheme for the sleep data:
 
 * 1: Awake
 * 2: Restless
 * 3: Asleep
 
-As with the intensity data, I confirmed this by reconstructing the original summary data using this mapping. In practice it turns out I had the mapping inverted, and actually the following was used:
+My tests revealed that I had this backwards, and the actual scheme was:
 
 * 1: Asleep
 * 2: Restless
 * 3: Awake
 
-This appears to be read as "1 is highest-quality sleep, 3 is worst-quality". I was able to recreate the existing sleep_src_mins_tall table almost perfectly using this mapping:
+As with the intensity data, I confirmed this naming convention by using it to reconstruct the daily summary data in "activity_sum_days_wide", then comparing the two tables and investigating any rows with non-zero differences:
 
 ```{r prep-compare-sleep-value-data, results = 'markdown'}
 # Reconstruct the summary sleep data for comparison with the original
@@ -418,14 +403,13 @@ rm(sleep_sum_days_wide_test, sleepDay_comp)
 
 The two +500-minute values were investigated and found to be the result of double-sampling in the data. That day had two duplicate logs, which in the original sum data was presented as two duplicate rows with the accurate 500-minute value, and in my data was presented as two rows with the full 1000 minutes of data summed. All other rows were identical to or within 22 minutes of the original, which I considered accurate enough to validate the mapping.
 
-# REVIEW: Step 3: Clean
+# Step 3: Clean
 ## Data Cleaning Checklist
 
 The following broad cleaning steps were taken:
 
 * Updated CSV file names to new standard
 * Removed missing data
-  * The "bodycomp_src_logs_wide" table was found to be missing the majority of the entries for the body-fat percentage variable: this variable will not be used in the analysis.
 * Cleaned and updated variable names
 * Removed duplicate data
 * Recast mismatched variable data types
@@ -436,32 +420,32 @@ These steps are further detailed in the sections below.
 
 ## Update CSV file names to new standard
 
-For this analysis, I'll rename the files to use this naming convention:
+For this analysis, I renamed the files according to the following convention:
 
 > [feature]\_[src/sum]\_[interval]\_[shape].[filetype]
 
-Applying the naming convention to the data set yields the following file names:
+Applying the naming convention to the data set yielded the following file names:
 
-| Original                           | Updated                        |
-|:-----------------------------------|:-------------------------------|
-| dailyActivity_merged.csv           | activity_sum_days_wide.csv     |
-| dailyCalories_merged.csv           | calories_sum_days_tall.csv     |
-| dailyIntensities_merged.csv        | intensity_sum_days_wide.csv    |
-| dailySteps_merged.csv              | steps_sum_days_tall.csv        |
-| heartrate_seconds_merged.csv       | heartrate_src_seconds_tall.csv |
-| hourlyCalories_merged.csv          | calories_sum_hours_tall.csv    |
-| hourlyIntensities_merged.csv       | intensity_sum_hours_wide.csv   |
-| hourlySteps_merged.csv             | steps_sum_hours_tall.csv       |
-| minuteCaloriesNarrow_merged.csv    | calories_src_mins_tall.csv     |
-| minuteCaloriesWide_merged.csv      | calories_sum_mins_wide.csv     |
-| minuteIntensitiesNarrow_merged.csv | intensity_src_mins_tall.csv    |
-| minuteIntensitiesWide_merged.csv   | intensity_sum_mins_wide.csv    |
-| minuteMETsNarrow_merged.csv        | mets_src_mins_tall.csv         |
-| minuteSleep_merged.csv             | sleep_src_mins_tall.csv        |
-| minuteStepsNarrow_merged.csv       | steps_src_mins_tall.csv        |
-| minuteStepsWide_merged.csv         | steps_sum_mins_wide.csv        |
-| sleepDay_merged.csv                | sleep_sum_days_wide.csv        |
-| weightLogInfo_merged.csv           | bodycomp_src_logs_wide.csv     |
+| Original                           | Updated                            |
+|:-----------------------------------|:-----------------------------------|
+| dailyActivity_merged.csv           | activity_sum_days_wide.csv         |
+| dailyCalories_merged.csv           | calories_sum_days_tall.csv         |
+| dailyIntensities_merged.csv        | intensity_sum_days_wide.csv        |
+| dailySteps_merged.csv              | steps_sum_days_tall.csv            |
+| heartrate_seconds_merged.csv       | heartrate_src_seconds_tall.csv     |
+| hourlyCalories_merged.csv          | calories_sum_hours_tall.csv        |
+| hourlyIntensities_merged.csv       | intensity_sum_hours_wide.csv       |
+| hourlySteps_merged.csv             | steps_sum_hours_tall.csv           |
+| minuteCaloriesNarrow_merged.csv    | calories_src_mins_tall.csv         |
+| minuteCaloriesWide_merged.csv      | calories_sum_mins_wide.csv         |
+| minuteIntensitiesNarrow_merged.csv | intensity_src_mins_tall.csv        |
+| minuteIntensitiesWide_merged.csv   | intensity_sum_mins_wide.csv        |
+| minuteMETsNarrow_merged.csv        | mets_src_mins_tall.csv             |
+| minuteSleep_merged.csv             | sleep_src_mins_tall.csv            |
+| minuteStepsNarrow_merged.csv       | steps_src_mins_tall.csv            |
+| minuteStepsWide_merged.csv         | steps_sum_mins_wide.csv            |
+| sleepDay_merged.csv                | sleep_sum_days_wide.csv            |
+| weightLogInfo_merged.csv           | bodycomp_src_logs_wide.csv         |
 
 The conversion was performed manually on my local device.
 
@@ -469,7 +453,7 @@ The conversion was performed manually on my local device.
 
 Each data frame was checked for NULL values and non-null empty strings. 
 
-The only table with missing data was "bodycomp_src_logs_wide", which was missing all but two of the data points for Body Fat Percentage. Given this lack of data, Body Fat Percentage will be excluded from the data analysis.
+The only table with missing data was "bodycomp_src_logs_wide", which was missing all but two of the data points for Body Fat Percentage. Given this lack of data, Body Fat Percentage was excluded from the data analysis.
 
 ```{r clean-remove-nulls}
 # Remove all NULL and empty-string values
@@ -494,6 +478,42 @@ rm(df, df_name, num_nulls, empty_strings, num_empty_strings, df_name)
 ```
 
 ## Clean and update variable names
+
+Variables were cleaned and renamed were required according to the following specification:
+
+| Original Name                       | Updated Name                        |
+|:------------------------------------|:------------------------------------|
+| activity_date                           | activity_day                        |
+| date (bodycomp_src_logs_wide.csv)       | bodycomp_datetime                   |
+| date (sleep_src_mins_tall.csv)          | sleep_minute                        |
+| log_id (sleep_src_mins_tall.csv)        | sleep_log_id                        |
+| log_id (bodycomp_src_logs_wide.csv)     | bodycomp_log_id                     |
+| fairly_active_distance                  | distance_fairly_active              |
+| fairly_active_minutes                   | minutes_fairly_active               |
+| light_active_distance                   | distance_lightly_active             |
+| light_active_minutes                    | minutes_lightly_active              |
+| lightly_active_distance                 | distance_lightly_active             |
+| lightly_active_minutes                  | minutes_lightly_active              |
+| logged_activities_distance              | distance_logged_activities          |
+| me_ts                                   | mets                                |
+| moderately_active_distance              | distance_moderately_active          |
+| sedentary_active_distance               | distance_sedentary                  |
+| sedentary_distance                      | distance_sedentary                  |
+| sedentary_active_minutes                | minutes_sedentary                   |
+| sedentary_minutes                       | minutes_sedentary                   |
+| step_total                              | steps_total                         |
+| time (heartrate_src_seconds_tall.csv)   | heart_rate_second                   |
+| total_distance                          | distance_total                      |
+| total_intensity                         | intensity_total                     |
+| total_minutes_asleep                    | minutes_asleep_total                |
+| total_sleep_records                     | sleep_records_total                 |
+| total_steps                             | steps_total                         |
+| total_time_in_bed                       | minutes_in_bed_total                |
+| tracker_distance                        | distance_tracker                    |
+| value (heartrate_src_seconds_tall.csv)  | heart_rate                          |
+| value (sleep_src_mins_tall.csv)         | sleep_rank                          |
+| very_active_distance                    | distance_very_active                |
+| very_active_minutes                     | minutes_very_active                 |
 
 ```{r clean-declare-var-update-fns}
 # Declare all functions and global variables required for cleaning
@@ -594,10 +614,11 @@ cat("Renaming variables complete.\n", sep = "")
 
 ## Remove duplicate data
 
-All dataframes were checked for duplicate rows using the anyDuplicated() function, and duplicate rows were removed using the distinct() function. The function was tested using a prototype version that generated dataframes of all of the apparent duplicate rows: these were verified manually before the function was allowed to modify the actual dataframes. The logic was verified again by re-running it after the initial removal: all dataframes reported zero duplicates on the second run, confirming the success of the first pass.
+Duplicate rows were removed from all data frames using the anyDuplicated and distinct functions
 
 ```{r clean-remove-duplicates}
 # Remove all duplicate data in data set
+# This function was tested using a prototype version that generated dataframes of all of the apparent duplicate rows: these were verified manually before the function was allowed to modify the actual dataframes. The logic was verified again by re-running it after the initial removal: all dataframes reported zero duplicates on the second run, confirming the success of the first pass.
 cat("Checking for duplicate values...\n",sep="")
 for (df_name in df_names) {
   cat("Checking ",df_name," for duplicates... ",sep="")
@@ -619,6 +640,8 @@ cat("Checking for duplicate values complete.\n",sep="")
 ```
 
 ## Recast mismatched variable data types
+
+Variables were renamed according to the following specification:
 
 | Variable        | Original Type | Updated Type | Reason                                                           |
 |:----------------|:--------------|:-------------|:-----------------------------------------------------------------|
@@ -758,9 +781,7 @@ Building the test code added a decent amount of work to the project, but now I h
 
 ## Trim leading or trailing characters
 
-* Manual check for variable names with non-whitespace trailing characters
-* Automated trim of variable names
-* Automated trim of character-type data entries
+Non-whitespace leading and trailing characters were removed from all variable names and all character-type data fields.
 
 ```{r clean-trim-whitespace-variables}
 # Trim variable names
@@ -808,19 +829,19 @@ cat("Trimming whitespace in character-type data values complete.\n", sep="")
 
 ## Validate numeric data
 
-Given that the data was not entered manually by the user, there's no way for me to manually check the correctness of all of the numeric values included in the data set. The values were instead checked against pre-determined limits to verify that they fall within realistic ranges, as detailed below.
+Given that the data was not entered manually by the user, there was no way for me to manually check the correctness of all of the numeric values included in the data set. The values were instead checked against pre-determined limits to verify that they fell within realistic ranges, as detailed below.
 
 Validating the data in this way also helps confirm the data makes sense in terms of the business logic, by confirming the data falls within realistic ranges given the capabilities of the devices and the types of data they claim to track.
 
 ### ID lengths and value ranges are correct
 
-I wrote a short function to validate the length of all rows in a data frame for a given column number and valid length. This was then used to check ID values in the data set against their correct length, including:
+All ID values in the data set were checked against their correct length according to the following specification
 
-* "id" values: 10-digit
-* "sleep_log_id" values: 11-digit
-* "bodycomp_log_id" values: 13-digit
-
-The validation confirmed all values were the correct length.
+| ID Variable | Correct Length (Digits) |
+|:------------------|:------------------|
+| id                | 10                |
+| sleep_log_id      | 11                |
+| bodycomp_log_id   | 13                |
 
 ```{r clean-validate-ID-lengths}
 # Validate ID lengths
@@ -847,9 +868,9 @@ rm(result)
 
 ```
 
-To further validate the large number of ID data points in the data set, I wrote a short function to check all ID variables in each data frame and determine the minimum and maximum values. The intent was to identify any possible erroneous values within the acceptable length limits, e.g. all zeroes or all nines. The function makes use of the direct conversion of strings to numerals in the min() and max() functions to carry out the comparison on character-type values.
+The validation confirmed all values were the correct length.
 
-The validation confirmed all values were within a realistic range.
+To further validate the large number of ID data points in the data set, I checked the minimum and maximum ID values in each data frame. The intent was to identify any possible erroneous values within the acceptable length limits, e.g. all zeroes or all nines.
 
 ```{r clean-validate-ID-ranges}
 # Validate ID ranges
@@ -868,9 +889,11 @@ cat("Checking min/max ID value ranges complete.\n",sep="")
 
 ```
 
+The validation confirmed all ID values were within a realistic range.
+
 ### Dates are all within range
 
-The data set is described as containing data from users collected between "03.12.2016-05.12.2016": all records in the data set were validated against this date range.
+The data set was described as containing data from users collected between "03.12.2016-05.12.2016": all records in the data set were validated against this date range. An intial check found dates just outside the range, dating up to 8am on 05.13.2016, the day after the data set supposedly ended. I didn't consider this to be a problem, so the valid end-date was updated to the 14th of May 2016 accordingly.
 
 ```{r clean-validate-all-dates}
 # Validate date data
@@ -906,21 +929,22 @@ rm(result)
 
 ```
 
-This check found dates just outside the range, dating up to 8am on 05.13.2016, the day after the data set supposedly ended. I didn't consider this to be a problem, so the valid end-date was updated to the 14th of May 2016 accordingly, and all dates passed this check.
+The validation confirmed all date values were within the target range.
 
 ### Non-date values are within appropriate ranges for their units
-Checklist:
-  - All numeric values are non-negative
-  - Percentage values are less than 100
-  - Weight values are positive and make sense (e.g. less than 200kg)
-  - BMI values are in range
-  - Daily, hourly, and minute duration sums are no more than one day, hour, or minute, respectively
-  - Distances make sense
-  - Step counts make sense (check for >20000 for a start)
-  - Calories are within normal range
-  - Heart rates are less than 200
+#### Validation Checklist
+
+* All numeric values are non-negative
+* Percentage values are less than 100
+* Weight values are positive and make sense (e.g. less than 200kg)
+* BMI values are in range
+* Daily, hourly, and minute duration sums are no more than one day, hour, or minute, respectively
+* Distances make sense
+* Step counts make sense (check for >20000 for a start)
+* Calories are within normal range
+* Heart rates are less than 200
   
-First, a check for negative values was run on all numeric columns in the data set.
+The validation code was split into generic checks that could be run on all numeric values, followed by code to analyse specific variables.
 
 ```{r clean-validate-all-numeric}
 # Validate all numeric data
@@ -951,16 +975,10 @@ rm(result)
 
 ```
 
-Results:
-
-* No negative values were found in the data.
-
-Second, variable-specific checks were run to confirm the data fell within realistic ranges given my understanding of the variables being measured.
-
-Note: The maximum values given are used as thresholds above which values may not be realistic, not as hard limits for acceptability: a heart-rate of 200bpm, for example, is entirely possible, but it is high enough that I would want to check if the data point corresponded to a period of high-intensity exercise.
-
 ```{r clean-validate-specific-numeric}
 # Perform additional validation on specific numeric data
+
+# Note: The maximum values given are used as thresholds above which values may not be realistic, not as hard limits for acceptability: a heart-rate of 200bpm, for example, is entirely possible, but it is high enough that I would want to check if the data point corresponded to a period of high-intensity exercise.
 
 # For a given list of dfs, column names, and a min-max range, check all matching columns in all matching dfs against that range
 validate_within_range <- function(df_name, column_names, range_min, range_max) {
@@ -1056,12 +1074,6 @@ valid_col_names <- c("calories")
 range_max <- 4000 # Chosen arbitrarily as double the typically-recommended daily caloric intake
 result <- map(valid_df_names, ~validate_within_range(.x, valid_col_names, 0, range_max))
 
-# TODO: METs
-valid_df_names <- c("mets_src_mins_tall")
-valid_col_names <- c("mets")
-range_max <- 12 # Equivalent to vigourous squash playing
-result <- map(valid_df_names, ~validate_within_range(.x, valid_col_names, 0, range_max))
-
 # Heart Rates
 valid_df_names <- c("heartrate_src_seconds_tall")
 valid_col_names <- c("heart_rate")
@@ -1072,39 +1084,34 @@ rm(range_max, result, valid_df_names, valid_col_names)
 
 ```
 
-Results:
+#### Validation Results
   
-  * There were no invalid negative values
-  * There were no invalid percentage values
-  * There were no invalid minute summations
-  * There were 19 step count data points above 20,000: these were manually checked and found to be associated with long distances covered and high levels of exercise, which made sense, so I considered that data valid.
-  * There were a total of four unique data points with a distance covered of more than one half-marathon: all of these also indicatd a very high level of exercise for at lest 90 minutes, which made sense, so I considered the data valid
-  * Calories: 21 records showed caloric burns of over 4000 calories. All but one of those were associated with very high levels of activity: the outlier showed only 30 minutes total as "Very Active" or "Lightly Active", compared to 120+ minutes for all other records. It does show 15km distance covered that day, which is nearly a third of a marathon, so for now it makes enough sense to keep it in, and I will analyse it further after the cleaning stage.
-  * Heart-rate: 13 records were found with a heart-rate between 200 and 203, all of which corresponded to a single user over a 30-minute period of "Very Active" intensity.
-  * METs: Every value was out of range for the original limit of 12 METs, chosen as it was the highest listed MET value for any activity in the source data. The smallest repeated value in the data was 10. This suggests my interpretation of the data logged for this variable is wrong.
-
+* No negative values were found in the data.
+* There were no invalid negative values
+* There were no invalid percentage values
+* There were no invalid minute summations
+* There were 19 step count data points above 20,000: these were manually checked and found to be associated with long distances covered and high levels of exercise, which made sense, so I considered that data valid.
+* There were a total of four unique data points with a distance covered of more than one half-marathon: all of these also indicatd a very high level of exercise for at lest 90 minutes, which made sense, so I considered the data valid
+* Calories: 21 records showed caloric burns of over 4000 calories. All but one of those were associated with very high levels of activity: the outlier showed only 30 minutes total as "Very Active" or "Lightly Active", compared to 120+ minutes for all other records. It does show 15km distance covered that day, which is nearly a third of a marathon, so for now it makes enough sense to keep it in, and I will analyse it further after the cleaning stage.
+* Heart-rate: 13 records were found with a heart-rate between 200 and 203, all of which corresponded to a single user over a 30-minute period of "Very Active" intensity.
   
 #### Sources used to determine realistic limits for numerical values
 Sources for ranges:
+
   * BMI: Based on WHO statistical categories for classifying BMI values: https://en.wikipedia.org/wiki/Body_mass_index#Categories
   * Half-marathon: https://en.wikipedia.org/wiki/Half_marathon
   * Step-count: https://www.abs.gov.au/statistics/health/health-conditions-and-risks/australian-health-survey-physical-activity/latest-release#pedometer-steps
   * Caloric intake: Chosen arbitrarily as double my own daily required intake, based on a calculator accessed at: https://www.eatforhealth.gov.au/nutrition-calculators/daily-energy-requirements-calculator 
   * Max HR: https://www.heart.org/en/healthy-living/fitness/fitness-basics/target-heart-rates
-  * METs: https://www.hsph.harvard.edu/nutritionsource/staying-active/, https://onlinelibrary.wiley.com/doi/epdf/10.1002/clc.4960130809
 
-
-# REVIEW: Step 4: Analyse
+# Step 4: Analyse
 ## Method
 
-Use the advertised features of the Ivy to guide the analysis
-
-## Function Declarations
-
-These are generic functions I developed for use during the analysis. They are declared here to be made available to subsequent code chunks.
+There were a range of features to consider when comparing the FitBit devices in the dataset to the Bellabeat Ivy. Of these, I chose to focus this analysis on those features that were both available on the Ivy and available in the data set, either directly or by a suitable proxy data. This approach allowed me to focus my recommendations to the marketing team on those features that can actually be marketed to the public in the first place.
 
 ```{r analyse-util-fns}
-# Declare generic functions for analysis
+# Declare generic functions for use in the analysis below
+
 round_data_to_bin <- function(data, bin_width) {
   rounding_factor <- 1 / bin_width
   return(round(data * rounding_factor) / rounding_factor)
@@ -1129,10 +1136,7 @@ rescale_plot <- function(p, x_min = 0, x_max = 10, x_step = 1, y_min = 0, y_max 
   return(p)
 }
 
-```
-
-```{r analyse-plot-histo-pareto-fn}
-plot_histo_pareto <- function (data, bin_width) {
+plot_histo_pareto <- function(data, bin_width) {
   # Cumulative data uses same bins as histogram
   data <- sort(data)
   data_rounded <- round_data_to_bin(data, bin_width)
@@ -1165,15 +1169,17 @@ plot_histo_pareto <- function (data, bin_width) {
     scale_y_continuous(name = "Users",
                        breaks = seq(0, highest_count, by = 1),
                        sec.axis = sec_axis(~./highest_count, name = "Cumulative Percentage of Users")) +
+    # scale_linetype_manual(values = c("solid", "dashed", "solid"),
+    #                       labels = c("Mean", "Median", "Cumulative")) +
+    # scale_color_manual(name = "Legend",
+    #                    values = c("red", "blue", "forestgreen")) +
     # annotate("text", x = Inf, y = Inf, label = label_text,
     #        hjust = 1, vjust = 1, size = 4) +
     labs(x = "Value",
          caption = label_text)
   return(p)
 }
-```
 
-```{r analyse-plot-time-coefficients-fn}
 get_time_coefficients <- function(ids, timestamps, values) {
   tbl <- tibble(
     id = ids,
@@ -1210,9 +1216,9 @@ plot_time_coefficients <- function(coeffs) {
     scale_y_continuous(breaks = seq(0, max_count, by=1)) +
     annotate("text", x = Inf, y = Inf, label = label_text,
            hjust = 1, vjust = 1, size = 4) +
-    labs(title = "Correlations with Time",
+    labs(title = "Correlation Coefficient with Time",
          caption = "Positive values imply variable of interest generally increased over time.",
-         x = "Coefficient of Correlation",
+         x = "Correlation Coefficient",
          y = "Count")
 }
 
@@ -1221,9 +1227,7 @@ get_time_coefficients_plot <- function(ids, timestamps, values) {
   p <- plot_time_coefficients(coeffs)
   return(p)
 }
-```
 
-```{r analyse-plot-wide-data-to-stacked-bar-fn}
 wide_to_stacked_bar_plot <- function(data_wide, key, value, key_order) {
   if(!("id" %in% colnames(data_wide))) {
     print("ERROR: data does not include \"id\" column: cannot convert.")
@@ -1248,9 +1252,7 @@ wide_to_stacked_bar_plot <- function(data_wide, key, value, key_order) {
     # scale_y_continuous(breaks = seq(0, 24, by = 1))
   }
 }
-```
 
-```{r analyse-plot-scatter-with-LOBF-fn}
 scatter_with_LOBF <- function(data_x, data_y, labels = NULL) {
   data <- tibble(
     x = data_x,
@@ -1283,28 +1285,20 @@ scatter_with_LOBF <- function(data_x, data_y, labels = NULL) {
   
   return(p)
 }
+
 ```
 
-## Heart Rate Tracking, Activity Tracking, and Step Counts
-### Feature Overview
+## Heart Rate Tracking and Activity Tracking
 
-* Heart-rate Tracking: "Use it to track your workout progress and optimize personal training routines."
-* Exercise Tracking: "Ivy will recognize your activity during the day, help you track up to 80 types of activity, count your steps, and discover how all that affects your body."
-* Step Counts
+The [existing marketing material](https://bellabeat.com/ivy/features/) for the Ivy states that Heart-rate Tracking can be "used to track your workout progress and optimize personal training routines," and that the Exercise Tracking feature "will recognize your activity during the day, help you track up to 80 types of activity, count your steps, and discover how all that affects your body." These features are closely related, since one of the primary functions of the HR tracking is to detect exercise intensity; steps and distance tracking can also be used to further analyse users' activity.
 
-* Do people count their steps? Yeah, all but three of them did
-* Do people engage in different types of activity? Yeah, big spread of Fairly/Very Active intensity levels, safe to say people don't all work out the same, so the more activity tracking the merrier
+In order to better understand how people are using similar functions on their FitBits, I analysed the quantities and qualities of the exercise that users in the data set were logging.
 
-These three features are closely related, since one of the primary functions of the HR tracking is to detect exercise intensity; steps and distance tracking can also be used to further analyse users' activity.
+### How much time do people spend exercising?
 
-In order to better understand how people are using their FitBits, I analysed the amounts and intensity of different users exercise.
+I started by getting a high-level breakdown of the time users were spending at different intensity levels:
 
-### Analysis
-#### How much time do people spend exercising?
-
-I start by getting the top-level breakdown of users time vs intensity:
-
-```{r analyse_mean_daily_intensities_by_id}
+```{r analyse-mean-daily-intensities-by-id}
 # For each ID, generate averages for the three non-sedentary intensity levels
 mean_daily_intensities_wide <- intensity_sum_days_wide %>%
   group_by(id) %>%
@@ -1313,7 +1307,7 @@ mean_daily_intensities_wide <- intensity_sum_days_wide %>%
             "fairly_active" = mean(minutes_fairly_active) / 60,
             "very_active" = mean(minutes_very_active) / 60)
 
-#Convert data to long-format for plotting as a histogram
+#Convert data to long-format for plotting as a stacked-bar chart
 intensity_order = c("sedentary", "lightly_active", "fairly_active", "very_active")
 mean_daily_intensities_long <- mean_daily_intensities_wide %>%
   tidyr::gather(key = "intensity", value = "mean_hours", -id) %>%
@@ -1324,111 +1318,72 @@ mean_daily_intensities_wide <- mean_daily_intensities_wide %>%
   mutate("total_active" = fairly_active + very_active) %>%
   arrange(total_active)
 
-# Apply order of IDs to long-format data to force plot order
+# Apply order of IDs to long-format data to force bar stacking order
 mean_daily_intensities_long$id <- factor(
   mean_daily_intensities_long$id,
   levels = mean_daily_intensities_wide$id)
 ```
 
-```{r viz_mean_daily_intensities_by_id}
+```{r analyse-plot-mean-daily-intensities-by-id}
 viz_avg_time_by_intensity <- ggplot(mean_daily_intensities_long, aes(x= id, y= mean_hours, fill= intensity)) +
   geom_bar(stat = "identity") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_y_continuous(breaks = seq(0, 24, by = 1)) +
-  labs(title="Average Time by Intensity Zone",
+  labs(title="Average Daily Time Logged by Intensity Zone",
        x = "User ID",
-       y = "Total Average Daily Time (hours)")
+       y = "Total Average Daily Time Logged (hours)")
 print(viz_avg_time_by_intensity)
 ```
 
-Preliminary Findings:
+#### Preliminary Findings
 
-* The large majority of people's time is clearly being spent in a sedentary state.
-* This makes sense, since it includes sleep tracking as well as time spent awake but immobile
-* There is a wide spread of times spent non-sedentary, with no clear outliers at this point
-* The large majority of non-sedentary time is Lightly Active
+* The large majority of people's time was spent in a sedentary state.
+* This made sense, since it included sleep tracking as well as time spent awake but immobile
+* There was a wide spread of times spent non-sedentary, with no clear outliers
+* The large majority of non-sedentary time was Lightly Active
 
-Given how large the majority of non-Sedentary time is "Lightly Active", and based on our understanding of the Intensity zones from previous sections, I will assume "Lightly Active" time includes any activity more intense than sitting down, up to an including activities like walking for leisure. Anything more intense would therefore fall into the "Fairly Active" or "Very Active" categories. With this in mind, I'll proceed with the assumption that the "Fairly Active" and "Very Active" zones represent intentional exercise.
+Given how large the majority of non-Sedentary time is "Lightly Active", and based on my understanding of the Intensity zones from previous sections, I assumed "Lightly Active" time included any activity more intense than sitting down, up to an including activities like walking for leisure. Anything more intense therefore fell into the "Fairly Active" or "Very Active" categories. With this in mind, I proceeded with the following definition:
 
-Next, I analyse users time spent intentionally exercising:
+> "Active Time" is time logged in either the "Fairly Active" or "Very Active" intensity category, and is assumed to be time spent intentionally exercising.
 
-```{r analyse_active_hours_by_count}
+Using this definition, I analysed users' time spent intentionally exercising, i.e. their Active Time:
+
+```{r analyse-active-hours-freq}
 # Update total_active to reflect new definition
-mean_daily_intensities_wide <- mean_daily_intensities_wide %>%
-  mutate(total_active = fairly_active + very_active) %>%
-  arrange(total_active)
+# mean_daily_intensities_wide <- mean_daily_intensities_wide %>%
+#   mutate(total_active = fairly_active + very_active) %>%
+#   arrange(total_active)
 
-mean_active_hours <- mean_daily_intensities_wide %>%
-  select(id, total_active)
-
-# Add cumulative user count for Pareto analysis
-total_users <- nrow(mean_active_hours)
-bin_width <- 0.25
-rounding_factor <- 1 / bin_width
-mean_active_hours <- mean_active_hours %>%
-  mutate(total_active_rounded = round(total_active * rounding_factor) / rounding_factor) %>%
-  mutate(cumulative_users = row_number() / total_users)
-
-mean_hours <- mean(mean_active_hours$total_active)
-median_hours <- median(mean_active_hours$total_active)
-
-ymax <- 12
-xmax <- 13.5
 ```
 
-```{r viz_active_hours_by_count}
-viz_active_hrs_per_week <- ggplot(mean_active_hours, aes(x=total_active)) +
-  geom_histogram(binwidth = bin_width, col="white") +
-  scale_x_continuous(breaks = seq(0, xmax, by = bin_width)) +
-  geom_line(aes(x = total_active_rounded,
-                y = cumulative_users * ymax),
-            col="red") +
-  geom_vline(aes(xintercept = mean_hours, col = 'red')) +
-  geom_vline(aes(xintercept = median_hours), col = 'blue') +
-  scale_y_continuous(name = "Number of Users",
-                     breaks = seq(0, ymax, by = 1),
-                     sec.axis = sec_axis(~./ymax,name = "Cumulative Percentage of Users")) +
-  labs(title = "Active Hours per Week",
-       x = "Hours")
-viz_active_hrs_per_week <- plot_histo_pareto(mean_active_hours$total_active, bin_width = 0.25) +
+```{r analyse-plot-active-hours-freq}
+viz_active_hrs_per_week <- plot_histo_pareto(mean_daily_intensities_wide$total_active, bin_width = 0.25) +
   labs(title = "Active Hours per Week",
        x = "Hours")
 print(viz_active_hrs_per_week)
+
 ```
 
-Preliminary Findings:
+#### Preliminary Findings
 
-* 72.7% of the cohort (24 users) get less than 45 minutes of Active Time per week on average.
-* 18% of the cohort (6 users) do more than 1 hour a week on average.
-* Most people in the dataset are not doing much more than very light exercise.
+* 72.7% of the cohort (24 users) got less than 45 minutes of Active Time per week on average.
+* 18% of the cohort (6 users) did more than 1 hour a week on average.
 
-#### How intensely do people exercise? 
+### How intensely do people exercise? 
 
-Here I analyse the data to see if there is any variation in the level of intensity of exercise between users. The variation was analysed by examining the ratio of "Fairly Active" to "Very Active" time for each user:
+Here I analysed the data to see if there was any variation in the level of intensity of exercise between users. To do this I calculated each user's Very Active Time as a proportion of their total Active Time: this gave me a single measure of how intensely each individual user was typically exercising:
 
-```{r analyse_proportion_intensity}
+```{r analyse-proportion-intensity}
 # For each ID, generate proportion Very Active time
 mean_daily_intensities_wide <- mean_daily_intensities_wide %>%
-  mutate(proportion_very_active = very_active / total_active)
+  mutate(proportion_very_active = ifelse(total_active > 0,
+                                     very_active / total_active,
+                                     0))
 
-# Convert data to long-format for plotting as a histogram
-intensity_order = c("fairly_active", "very_active")
-mean_daily_intensities_long <- mean_daily_intensities_wide %>%
-  tidyr::gather(key = "intensity", value = "mean_hours", -id) %>%
-  mutate(intensity = factor(intensity, levels = intensity_order)) %>%
-  filter(intensity == "fairly_active" | intensity == "very_active")
-
-# Reorder IDs in order of "Very Active" time
-mean_daily_intensities_wide <- mean_daily_intensities_wide %>%
-  arrange(proportion_very_active)
-
-# Apply order of IDs to long-format data to force plot order
-mean_daily_intensities_long$id <- factor(
-  mean_daily_intensities_long$id,
-  levels = mean_daily_intensities_wide$id)
 ```
 
-```{r viz_proportion_intensity}
+```{r analyse-plot-proportion-intensity}
+# Visualise proportion Very Active time
 viz_very_active_proportion <- plot_histo_pareto(mean_daily_intensities_wide$proportion_very_active,
                                                 bin_width = 0.1) +
   labs(title = "Percentage of Active Time spent Very Active",
@@ -1436,20 +1391,25 @@ viz_very_active_proportion <- plot_histo_pareto(mean_daily_intensities_wide$prop
 print(viz_very_active_proportion)
 ```
 
-Preliminary Findings: 
+#### Preliminary Findings
 
-* It's quite evenly spread out from around 10% Very Active to around 90% Very Active across all users, with no clear outliers.
-* It would appear that the user group engages in a range of exercise activities of varying intensity.
+* Exercise intensity was evenly spread out from around 10% Very Active to around 90% Very Active across all users, with no clear outliers.
+* The user group appeared to engage in a range of exercise activities of varying intensity.
 
-#### Do people who track more do more-intense exercise?
+### Do people who exercise more do more-intense exercise?
 
-The proportion of Active Time spent Very Active was plotted against the total Active Time to see if there was a correlation. From the earlier analysis of overall Active Hours per week, we can see that Active Hours are skewed right and concentrated towards the lower end: given this distribution, I also re-ran the analysis twice, once with the upper quintile of users removed, and once with the lower quintile removed. The results are plotted below.
+The previous analysis showed that users were engaging in a range of intensity levels. I also wanted to identify if there was a trend in the cohort where users who exercised more often also exercised more intensely. This would help me characterise the user group: perhaps users who exercised harder tended to exercise longer; perhaps those who exercised longer were favouring lower-intensity activities, like walking; or perhaps there would be no pattern, indicating a variety of exercise preferences. To analyse this, I plotted the Very Active Proportion data from the previous analysis against total Active Time for each user:
 
-```{r analyse_logged_minutes_vs_intensity}
+```{r analyse-logged-minutes-vs-intensity}
+mean_daily_intensities_wide_no_lower_quint <- mean_daily_intensities_wide %>%
+  arrange(total_active) %>%
+  head(ceiling(nrow(mean_daily_intensities_wide)*0.2))
 
+mean_daily_intensities_wide_no_upper_quint <- mean_daily_intensities_wide %>%
+  filter(total_active < 0.75)
 ```
 
-```{r viz_logged_minutes_vs_intensity}
+```{r analyse-plot-logged-minutes-vs-intensity}
 viz_very_active_vs_total_active <- ggplot(mean_daily_intensities_wide, aes(x=total_active, y=proportion_very_active)) +
   geom_point() +
   geom_smooth(method = "lm",
@@ -1468,15 +1428,51 @@ viz_very_active_vs_total_active <- ggplot(mean_daily_intensities_wide, aes(x=tot
 print(viz_very_active_vs_total_active)
 ```
 
-Preliminary Findings: 
+Very Active Proportion was positively correlated with Active Time, with an R^2 value of 0.27. On visual inspection of the plot, the cohort appeared split into a majority group clustered around the lower end of Active Hours, and a smaller group with higher hours. Intuitively, this seemed to be skewing the scatter plot into the upper-right corner, and possibly contributing to a stronger correlation between hours and intensity. To put some numbers behind this, I re-drew the plot with the upper quintile of users removed:
+
+```{r analyse-plot-logged-minutes-vs-intensity-trunc}
+four_quintiles_length <- floor(nrow(mean_daily_intensities_wide)*0.8)
+
+viz_very_active_vs_total_active_no_upper_quint <- ggplot(
+  data = mean_daily_intensities_wide %>% 
+    arrange(total_active) %>%
+    head(four_quintiles_length),
+  aes(x=total_active, y=proportion_very_active)
+  ) +
+  geom_point() +
+  geom_smooth(method = "lm",
+              se = FALSE,
+              color = "blue") +
+  stat_cor(aes(label=..rr.label..),
+           label.x=Inf,
+           hjust = 1,
+           label.y= Inf,
+           vjust = 1) +
+  scale_x_continuous(limits=c(0,2)) + 
+  scale_y_continuous(limits=c(0,1)) +
+  labs(title="Proportion Very Active vs. Total Active Time",
+       subtitle="Upper Quintile Removed",
+       x = "Average Weekly Active Time (hours)",
+       y = "Proportion of Very Active Time (%)")
+print(viz_very_active_vs_total_active_no_upper_quint)
+
+```
+
+With the upper quintile of the cohort removed, the correlation between hours and intensity dropped from 0.27 to 0.097. This supported my hypothesis that a small group of users was particularly active, both in terms of quanitity and intensity of exercise, while the remaining majority was spread out over a wider range.
+
+#### Preliminary Findings
+
 * Very Active Proportion was positively correlated with Active time, with an R^2 value of 0.27.
-* Removing the upper quintile decreased the correlation to 0.23, indicating that those doing less exercise also do a wider range of intensities
-* Removing the lower quintile increased the correlation to 0.32, indicating that those doing the most exercise are doing a narrower range of higher-intensity activities.
-* Overall, the results indicate that the majority of the cohort is engaged in a wide range of activities. There is a large subset of the group doing a low amount of varied exercise, as well as a small group of outliers doing a higher amount of more-intense exercise.
+* This correlation was driven primarily by a minority of users with high Active Time and high Very Activity Proportion.
+* Overall, the results indicated that the majority of the cohort was engaged in a wide range of activities. There did not appear to be any evidence that a majority of users favoured a particular level of intensity.
 
-#### Do people increase their activity over time?
+### Do people increase their activity over time?
 
-```{r analyse_intensity_over_time}
+One potential selling point for any health-oriented wearable device like FitBits is the idea that they actively encourage users to be more active. I wanted to see if this idea was borne out in the data: I knew that most users did not exercise much, on average, but did those values increase at all? If they did, there would be grounds to claim that device usage is at least associated with an increase in users' physical activity.
+
+To analyse this, I calculated the correlation coefficients between time and exercise hours, at each intensity level and for each user, which condesed the full months' worth of data for each user into a single variable indicating their overall trend. These coefficents were then plotted as a histogram, allowing me to visualise the trends for all users at once: 
+
+```{r analyse-active-hours-over-time}
 # For each intensity level, obtain time coefficients per ID
 
 lightly_active_time_coeffs <- get_time_coefficients(
@@ -1508,7 +1504,7 @@ intensity_time_coeffs <- rbind(
 )
 ```
 
-```{r viz_intensity_over_time}
+```{r analyse-plot-active-hours-over-time}
 viz_all_intensity_over_time <- ggplot(intensity_time_coeffs) +
   theme_minimal() +
   geom_freqpoly(aes(x = correlation,
@@ -1519,24 +1515,70 @@ viz_all_intensity_over_time <- ggplot(intensity_time_coeffs) +
   scale_y_continuous(breaks = seq(0, 10, by = 1)) +
   geom_vline(xintercept = 0) +
   geom_hline(yintercept = 0) +
-  labs(title = "Coefficient of Active Hours with Time, by Intensity",
+  labs(title = "Correlation Coefficients for Active Hours vs. Time",
+       subtitle = "Grouped by Intensity",
        x = "Correlation with Time",
        y = "Users")
 print(viz_all_intensity_over_time)
 ```
 
-#### Do people prefer to walk or run?
+The distributions of correlation coefficients were skewed slightly negative, peaking around -0.2 to -0.1. There was no indication that most users were increasing their exercise duration over time: in fact, the opposite seemed to be true.
 
-Why do I care: If people like to run, we can market it at those people
+As a final check, I re-ran the analysis, this time analysing the correlation between time and Very Active Proportion:
 
-How do we find out if people run?
-Steps/second
-Distance/second
-How will we know if they're running? Speed above a certain level
+```{r analyse-intensity-over-time}
+# For each intensity level, obtain time coefficients per ID
 
-I can use the src logs directly as they are logged every minute, so each data point is also an average speed in steps per minute. From this, I can set up some ranges for different walking types based on speed, count the number of steps logs in each range for each person/day, then finally average the sums over the days to get each users' average time spent at each speed
+daily_intensity_proportions <- intensity_sum_days_wide %>%
+  mutate(minutes_active = minutes_fairly_active + minutes_very_active,
+         proportion_very_active = ifelse(minutes_active > 0,
+                                         minutes_very_active / minutes_active,
+                                         0))
 
-```{r analyse_running_habits}
+```
+
+```{r analyse-plot-intensity-over-time}
+viz_lightly_active_time_coeffs <- get_time_coefficients_plot(
+  daily_intensity_proportions$id,
+  daily_intensity_proportions$activity_day,
+  daily_intensity_proportions$proportion_very_active
+) +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  labs(title = "Correlation Coefficients for Very Active Proportion Time",
+       x = "Correlation with Time",
+       y = "Users")
+
+print(viz_lightly_active_time_coeffs)
+```
+
+As with the overall categories, the correlation coefficients were mostly negative, with a Mean and Median of -0.04 and -0.08, respectively
+
+#### Preliminary Findings
+
+* There was no evidence to suggest device users were becoming more active over time
+* Users were actually less likely to log active hours over time, and Very Active Time as a proportion of all Active Time also typically decreased slightly
+
+### Do people prefer to walk or run?
+
+As with overall exercise intensity, I analysed user preferences towards walking or running to help target my recommendations towards the activities users are already engaged in. For this, I made use of the step count source data. This data is logged every minute, so each data point equates to the user's average speed, expressed in steps-per-minute. 
+
+For this analysis I defined several different walking speeds based on steps-per-minute, which were intended to be analagous to the four activity Intensity levels:
+
+| Speed Range | Steps per Minute |
+|:-|:-|
+| Not Walking       | 0         |
+| Moderate Walking  | 0 to 80   |
+| Brisk Walking     | 80 to 110 |
+| Running           | > 110     |
+
+I also defined a value, "Active Walking", to be used as an analog to the Active Time value used in the activity intensity analysis:
+
+> "Active Walking Time" is time logged in either the "Brisk Walking" or "Running" speed categories, and is assumed to be time spent intentionally walking, jogging, or running for exercise.
+
+I then calculated the daily average times that users spent in each range:
+
+```{r analyse-movement-habits}
 brisk_walk_thld <- 80
 running_thld <- 110
 
@@ -1567,23 +1609,27 @@ mean_movement_times_long$id <- factor(
 )
 ```
 
-```{r viz_running_habits}
-ggplot(mean_movement_times_long %>% filter(speed != "not_walking"),
+```{r analyse-plot-movement-averages}
+ggplot(mean_movement_times_long,
        aes(x = id, y = mean_hours, fill = speed)) +
   geom_bar(stat = "identity") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_y_continuous(breaks = seq(0,33,by=1)) +
-  labs(title = "Average Daily Running Speeds by User ID",
+  labs(title = "Average Daily Movement Speeds by User ID",
        x = "User ID",
        y = "Average Daily Hours")
 
+```
+
+As an alternative visualisation, I also plotted a histogram comparing just the non-immobile categories:
+
+```{r analyse-plot-movement-frequencies}
 viz_walking_speed_frequency <- ggplot(mean_movement_times_long %>% filter(speed != "not_walking")) +
   theme_pubclean() +
   geom_histogram(aes(x = mean_hours,
                      fill = speed),
                  binwidth = 0.25,
                  position = "dodge",
-                 # width = 0.3,
                  color = "black") +
   scale_x_continuous(breaks = seq(0, 5, by = 0.25)) +
   # theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
@@ -1592,63 +1638,59 @@ viz_walking_speed_frequency <- ggplot(mean_movement_times_long %>% filter(speed 
        y = "Users")
 print(viz_walking_speed_frequency)
 
-viz_mean_mod_walking <- plot_histo_pareto(mean_movement_times$moderate_walking,
-                                      bin_width = 0.25) +
-  labs(title = "Average Moderate Walking Hours per Week",
-       x = "Average Hours per Week")
-print(viz_mean_mod_walking)
-
-viz_mean_brisk_walking <- plot_histo_pareto(mean_movement_times$brisk_walking,
-                                        bin_width = 0.25) +
-  labs(title = "Average Brisk Walking Hours per Week",
-       x = "Average Hours per Week")
-print(viz_mean_brisk_walking)
-
-viz_mean_running <- plot_histo_pareto(mean_movement_times$running,
-                                  bin_width = 0.25) +
-  labs(title = "Average Running Hours per Week",
-       x = "Average Hours per Week")
-print(viz_mean_running)
-
-grid.arrange(viz_mean_mod_walking,
-             viz_mean_brisk_walking,
-             viz_mean_running,
-             ncol = 1)
 ```
 
-Preliminary Findings: 
+This plot breaks out the visualisation of the less-common walking speeds for easier comparison: it can be seen clearly that the majority of users are getting half an hour or less of Active Walking per day, but more than two hours of Moderate Walking per day.
 
-* Most people spend most of their time walking slowly
-* Brisk walking is somewhat more common, with 24 of 33 users logging between 0.25 and 0.5 hours per week
+Next, I analysed the quantity of Active Walking specifically that users were logging:
+
+```{r analyse-walking-hours-freq}
+# Calculate "Active Walking" times for each user
+mean_movement_times <- mean_movement_times %>%
+  mutate(total_active_walking = brisk_walking + running) %>%
+  arrange(total_active_walking)
+
+```
+
+```{r analyse-plot-active-walking-freq}
+# Plot histogram "Active Walking" times for each user
+viz_active_walking <- plot_histo_pareto(mean_movement_times$total_active_walking, bin_width = 0.25) +
+  labs(title = "Average Daily Active-Walking Hours",
+       x = "Average Daily Hours")
+print(viz_active_walking)
+
+```
+
+Finally, I analysed what proportion of Active Walking time that users were spending Running:
+
+```{r analyse-proportion-running}
+# For each ID, generate proportion Running time
+mean_movement_times <- mean_movement_times %>%
+  mutate(proportion_running = ifelse(total_active_walking > 0,
+                                     running / total_active_walking,
+                                     0))
+
+viz_running_proportion <- plot_histo_pareto(mean_movement_times$proportion_running,
+                                                bin_width = 0.1) +
+  labs(title = "Percentage of Active Walking Time Spent Running",
+       x = "% Running")
+print(viz_running_proportion)
+```
+
+
+#### Preliminary Findings
+
+* The majority of users' time is spent Not Walking
+* The majority of the rest of users' time is spent Moderate Walking
+* The remaining time is split between Brisk Walking and Running, with a range of values across the cohort
 * Runners are rare, with 30 of 33 users logging 0.25 hours or less per week, and the remaining three outliers logging between 0.5 and 1.25 hours per week
+* The proportion of active walking spent running was clustered below 50%, indicating a preference for walking or jogging over running.
 
-#### Do people increase their active walking hours over time?
+### Do people increase their active walking hours over time?
 
-```{r viz_walking_over_time}
-viz_mean_mod_walking_vs_time <- get_time_coefficients_plot(mean_movement_times_daily$id,
-                                                       mean_movement_times_daily$activity_day,
-                                                       mean_movement_times_daily$moderate_walking) +
-  labs(title = "Moderate Walking Over Time")
+To analyse changes in user movement habits over time, I repeated the analysis of time correlation coefficients I performed on the activity intensity data, but for the walking speed categories I had defined:
 
-viz_mean_brisk_walking_vs_time <- get_time_coefficients_plot(mean_movement_times_daily$id,
-                                                    mean_movement_times_daily$activity_day,
-                                                    mean_movement_times_daily$brisk_walking) +
-  labs(title = "Brisk Walking Over Time")
-
-viz_mean_running_vs_time <- get_time_coefficients_plot(mean_movement_times_daily$id,
-                                                    mean_movement_times_daily$activity_day,
-                                                    mean_movement_times_daily$running) +
-  labs(title = "Running Over Time")
-
-
-
-grid.arrange(viz_mean_mod_walking_vs_time,
-             viz_mean_brisk_walking_vs_time,
-             viz_mean_running_vs_time,
-             nrow = 3)
-```
-
-```{r viz_all_walking_over_time}
+```{r viz-all-walking-over-time}
 mod_walking_time_coeffs <- get_time_coefficients(
   mean_movement_times_daily$id,
   mean_movement_times_daily$activity_day,
@@ -1691,41 +1733,40 @@ viz_all_walking_over_time <- ggplot(walking_time_coeffs) +
        y = "Users")
 print(viz_all_walking_over_time)
 
-# ggplot(walking_time_coeffs) +
-#   geom_histogram(aes(x = correlation,
-#                      fill = speed),
-#                  binwidth = 0.1,
-#                  position = "dodge",
-#                  color = "black") +
-#   scale_x_continuous(breaks = seq(-1, 1, by = 0.1))
 ```
 
-Preliminary Findings:
+#### Preliminary Findings
 
-* Most users actually decreased or did not change their walking time over the data period
+* Most users decreased or maintained their walking times
 * This finding was consistent across all walking types
-* There is no evidence to suggest FitBit users increased their walknig times as a result of their FitBit device usage
+* There is no evidence to suggest FitBit users increased their walking times as a result of their FitBit device usage
 
-#### Are people getting their steps in?
+### Are people getting their steps in?
 
-```{r analyse_mean_daily_step_counts}
+Step counts are commonly used as a measure of overall activity levels. The typical figure provided for a healthy adult is 10,000 steps per day: and example can be found in this [Australian Health Survey](https://www.abs.gov.au/statistics/health/health-conditions-and-risks/australian-health-survey-physical-activity/latest-release#pedometer-steps) which states that "For adults, 10,000 steps is used by researchers worldwide as a reasonable estimate of daily activity by healthy adults." For this analysis, I first analysed overall daily step counts in the cohort:
+
+```{r analyse-mean-daily-step-counts}
 mean_daily_steps <- steps_sum_days_tall %>%
   group_by(id) %>%
   summarize(mean_steps = mean(steps_total))
 ```
 
-```{r viz_mean_daily_step_counts}
+```{r viz-mean-daily-step-counts}
 viz_mean_daily_steps <- plot_histo_pareto(mean_daily_steps$mean_steps, 2000) +
   labs(title = "Average Daily Steps by User",
        x = "Average Daily Steps")
 print(viz_mean_daily_steps)
 ```
 
-Answer: Typically 7500.
+#### Preliminary Findings
 
-#### Do people increase their step counts over time?
+* User step counts were distributed approximately normally around a mean of 7,500 steps per day
+* This was closer to the typically-recommended value of 10,000 steps than I was expecting
+* Combined with the earlier data indicating a very high proportion of users' time being spent Not Walking, this analysis  supported the hypothesis that the cohort that does not prioritise physical activity
 
-```{r viz_mean_daily_steps_vs_time}
+### Do people increase their step counts over time?
+
+```{r viz-mean-daily-steps-vs-time}
 viz_mean_daily_steps_vs_time <- get_time_coefficients_plot(steps_sum_days_tall$id,
                                                 steps_sum_days_tall$activity_day,
                                                 steps_sum_days_tall$steps_total) +
@@ -1735,17 +1776,18 @@ viz_mean_daily_steps_vs_time <- get_time_coefficients_plot(steps_sum_days_tall$i
 print(viz_mean_daily_steps_vs_time)
 ```
 
-Preliminary Findings:
+#### Preliminary Findings
 
 * As with walking types, the majority of users actually did fewer steps over time
+* The analysis further supported the hypothesis that the cohort that does not prioritise physical activity
 
-#### Do people engage in stationary or mobile exercise?
+### Do people engage in stationary or mobile exercise?
 
 Examples of stationary exercise include gym-based activities like treadmill running and weight-lifting. Examples of mobile exercise include outdoor activities like jogging, but also indoor activities like squash or, depending on the accuracy of the FitBit distance tracking, gym workouts based on rotation through various equipment and exercises spaced around the venue. Determining if users have a preference for one activity type over another can help guide the marketing for the Ivy.
 
 I analysed stationary versus mobile activity preferences by plotting the data for Active Minutes against Active Distance. The theory was that the more stationary exercise users do, the weaker the correlation between active time and active distance should be, because users are not moving while exercising (i.e. machine-based cardio and resistance training).
 
-```{r analyse_distance_vs_intensity}
+```{r analyse-distance-vs-intensity}
 distance_vs_active <- activity_sum_days_wide %>%
   select(id,
          activity_day,
@@ -1760,7 +1802,7 @@ distance_vs_active <- activity_sum_days_wide %>%
             mean_minutes_active = mean(minutes_active))
 ```
 
-```{r viz_distance_vs_intensity}
+```{r viz-distance-vs-intensity}
 viz_distance_vs_activity <- scatter_with_LOBF(distance_vs_active$mean_minutes_active,
                        distance_vs_active$mean_distance_active,
                        c("Mean Daily Active Minutes", "Mean Daily Active Distance")) +
@@ -1769,44 +1811,22 @@ viz_distance_vs_activity <- scatter_with_LOBF(distance_vs_active$mean_minutes_ac
 print(viz_distance_vs_activity)
 ```
 
-Preliminary Findings:
+#### Preliminary Findings
 
 * Active Minutes correlate strongly with Active distance, with R^2 = 0.77.
 * Clearly absent from the plot is a significant number of users with high Active Minutes but low Active Distance
 * Users typically log an additional 3.6 km of distance for every hour of Active time: to achieve this in a gym setting a user would have to follow a typical pattern resembling, for example, two one-minute stationary resistance training sets, followed by one minute moving around the gym at approximately 10.8 kilometers per hour, which seems unrealistic
-
-Overall, based on the strong correlation between Active Time and Active distance, and the scale of the distances covered by active users, it would appear that the cohort engages in a variety of mobile exercise activities. The exact breakdown of mobile vs. stationary activities has not been determined, but I believe it is safe to say that the marketing for the Ivy should represent mobile and outdoor activities more strongly over indoor, gym-based, or other stationary activities.
-
+* Overall, it would appear that the cohort engages in a variety of mobile exercise activities.
 
 ## Readiness Score
-### Feature Overview
-Subtitle: "Includes Resting Heart Rate, Respiratory Rate, and Cardiac Coherence functions"
 
-Description:
+The "Readiness Score" feature of the Bellabeat Ivy makes use of several other features, including the Resting Heart Rate, Respiratory Rate, and Cardiac Coherence functions. The [existing marketing material](https://bellabeat.com/ivy/features/) states that "While you sleep at night and your body is in its calmest state, Ivy measures your resting heart rate, respiratory rate, and cardiac coherence... In the morning, when synced with the Bellabeat app, Ivy calculates your readiness score – how ready you are for the day on a scale from 0 to 100." 
 
-* "While you sleep at night and your body is in its calmest state, Ivy measures your resting heart rate, respiratory rate, and cardiac coherence."
-* "Resting heart rate (RHR) is the number of heartbeats per minute, measured when the body is fully calm during the night."
-* "The cardiac coherence parameter shows how your heart rate variability and breathing rate are synchronized."
+This score is one of several features of the Ivy that was not present on the FitBits in the available data, which made it a potential value-add feature, but also made it difficult to investigate existing user behaviours for. One important aspect that I could analyse was whether or not users currently wear their devices to bed.
 
-The Readiness Score is one of several features of the Ivy that can be marketed as a value-add over the FitBit devices in the data set. The feature makes use of several functions of the device, some of which the FitBits in the data set do not have, and builds on other features already available, like Respiratory Rate and Resting Heart Rate
+### Do people sleep with their FitBits on?
 
-The FitBit devices in the dataset don't log any direct equivalent to the Readiness Score, nor does the documentation for the devices describe any comparable feature. 
-
-While the Blaze does have a breathing-detection function, it does not appear to be tracked over time in the data, and the Blaze manual describes it used only for "Guided Breathing" activities, which track respiratory rate only during the activity.
-
-The Surge manual also mentions that ("Wearing your Surge while you sleep has the added benefit of making the
-Resting Heart Rate measurements on your dashboard more accurate")[https://myhelp.fitbit.com/resource/manual_surge_en_US], so it appears to have that feature as well, but it is not built into an overall "Readiness Score"
-
-This makes a potentially valuable function of the device, but also makes it difficult to investigate the existing data for evidence of how users might make use of this feature.
-
-One aspect we can analyse is whether or not users currently wear their devices to bed.
-
-### Analysis
-#### Do people sleep with their FitBits on?
-
-Nighttime usage of FitBits is particularly relevant to the Readiness Score, as that function does not work unless the user wears their device to bed. If people are already frequently wearing their devices to bed, then the marketing can leverage this tendency to push the feature as an improvement on existing features. On the other hand, if users are not wearing their devices overnight, this may indicate that users are not interested in existing overnight-monitoring functions, or that there are other factors that make overnight wear unappealing, which marketing teams will need to take into account.
-
-##### Which models can tell when the user is sleeping?
+Nighttime usage of FitBits was particularly relevant to the Readiness Score, as that function does not work unless the user wears their device to bed. If people were already frequently wearing their devices to bed, then the marketing could leverage this tendency to push the feature as an improvement on existing features. On the other hand, if users were not wearing their devices overnight, this might indicate that users were not interested in existing overnight-monitoring functions, or that there were other factors that made overnight wear unappealing, which marketing teams would need to take into account.
 
 As of April 2016, the following wristband FitBits were available:
 
@@ -1820,12 +1840,9 @@ As of April 2016, the following wristband FitBits were available:
 | Flex 2          | Yes           | No                  | [User Manual](https://help.fitbit.com/manuals/manual_flex_2_en_US.pdf) |
 | Surge           | Yes           | Yes                 | [User Manual](https://myhelp.fitbit.com/resource/manual_surge_en_US) |
 
-Preliminary Findings:
+Sleep logging is available on all devices, so sleep log data should indicate how the overall cohort uses this feature. Heart-rate logging is limited to later devices, so heartrate data will only indicate how that subset of the cohort uses that feature. With this in mind, I focused my analysis on the sleep logs.
 
-* Sleep logging is available on all devices, so sleep log data should indicate how the overall cohort uses this feature
-* Heart-rate logging is limited to later devices, so heartrate data will only indicate how that subset of the cohort uses that feature
-
-##### Sleep Logs Analysis
+#### Sleep Logs Analysis
 
 For each user, I calculated the number of nights where the total sleep time logged was greater than 6 hours: this value was picked as being close enough to the recommended 8 hours of sleep to indicate the user did actually go to bed with their device on, but not so high that it would not pick up data from users who don't get a full night's sleep.
 
@@ -1858,7 +1875,7 @@ for (id in missing_ids) {
 
 ```
 
-```{r analyse-viz-night-usage-sleep-logs}
+```{r analyse-plot-night-usage-sleep-logs}
 # Visualise overnight usage using sleep log data
 viz_night_usage_sleep_logs <- plot_histo_pareto(nights_logged_by_sleep_log$pct_logged_in_bed, bin_width = 0.05) +
   labs(title = "Percentage of Nights Logged In Bed - All Users",
@@ -1867,49 +1884,11 @@ print(viz_night_usage_sleep_logs)
 
 ```
 
-Preliminary Findings:
+#### Heart-rate Analysis
 
-* Out of all users in the data set, very few users are logging, with 36% (12 users) logging between 0% and 5% of nights, and a majority of 51% (17 users) logging 10% of nights or fewer
-* Out of users with sleep log data, the results are more evenly spread, with 37% (9 users) logging 0% to 15% of nights, and another 42% (10 users) logging 70% to 90% of nights.
+The sleep logs data gave a good indication of whether users were interested in sleep logging data, but it didn't directly confirm whether people were wearing their devices to bed. To investigate this, I also analysed the heart-rate data for each user. This was by far the largest and least-processed data set, but it had the advantage of only generating data if the device was physically contacting the user at that time.
 
-Given that the FitBit devices available at the time the dataset was recorded all have sleep-tracking functionality, these findings indicate that the majority of users are not making use of this function. One possible reason for this is indicated by the manual for the FitBit Surge, which informs the user that ["wearing your tracker 24/7 does not allow your skin to breathe"](https://myhelp.fitbit.com/resource/manual_surge_en_US)
-
-##### Heart-rate Analysis
-
-The sleep logs data gives a good indication of whether users are interested in sleep logging data, but it doesn't directly confirm whether people are wearing their devices to bed. To investigate this, I also analysed the heart-rate data for each user. This is by far the largest and least-processed data set, but it has the advantage of only generating data if the device is physically contacting the user.
-
-Taking the brute-force approach to plotting the data for each user makes it much easier to visualise the patterns in user behaviour:
-
-TODO: Widen out this plot
-
-```{r analyse-viz-all-heartrate-data}
-# Visualise overnight device usage using heart rate data
-data <- heartrate_src_seconds_tall %>%
-    mutate(is_nighttime = hour(heart_rate_second) >= 22 | hour(heart_rate_second) < 6)
-p <- ggplot(data) +
-  geom_point(aes(x = heart_rate_second,
-                 y = heart_rate,
-                 color = is_nighttime),
-             size = 0.1,
-             shape = 3) +
-  facet_wrap(vars(id))
-print(p)
-
-
-ggsave("viz_all_heartrate_data.png",
-       plot = p,
-       device = "png",
-       width = 3840,
-       height = 2160,
-       units = "px")
-
-rm(data)
-
-```
-
-Once R is done chewing through the data, we can see that all users have clear gaps in their heart-rate logs.
-
-The heart rate data takes the form of individual polls recording the user's momentary heart rate. This presents a challenge compared to using the summary data, in that these individual logs must be processed to determine when the user was wearing their device continuously. Counting the number of logs over a given time period will not work, as the time between logs varies even when the device is worn. Polling times less than 60 seconds, for example, are typically between 1 and 20 seconds, as shown below:
+The heart rate data took the form of individual polls recording the user's momentary heart rate. This presented a challenge compared to using the summary data, in that these individual logs had to be processed to determine when the user was wearing their device continuously. Simply counting the number of logs over a given time period would not work, as the time between logs varies even when the device is worn. Polling times less than 60 seconds, for example, are typically between 1 and 20 seconds, as shown below:
 
 ```{r analyse-heartrate-polling-variance}
 # Analyse heartrate polling variance
@@ -1920,19 +1899,20 @@ heartrate_polling_variance <- heartrate_src_seconds_tall %>%
 
 ```
 
-```{r analyse-viz-heartrate-polling-variance}
-# Visualise heartrate polling variance
+```{r analyse-plot-heartrate-polling-variance}
+# Visualise heart rate polling variance
 ggplot(heartrate_polling_variance) +
   geom_boxplot(aes(y = polling_diff)) +
-  scale_y_continuous(breaks = seq(0,60,by=5))
+  scale_y_continuous(breaks = seq(0,60,by=5)) +
+  labs(title="Variation in Heart Rate Polling",
+       caption="Distribution shown for polling differences less than 60 seconds",
+       y="Time Between Polls (seconds)")
 
 ```
 
-This means that even choosing the median value of 5 seconds could result in an inferred "time logged" value that's out by a factor of 5.
+This meant that even choosing the median value of 5 seconds could result in an inferred "time logged" value that's out by a factor of 4.
 
-To build out the data, I decided on an approach where the time between logs was used to infer the time logged, but only within an acceptable time difference. If one log follows its predecessor by less than this difference, the time between the two is considered "Logged" time: if the delay is greater, we assume the device was taken off for that time.
-
-From the polling variance analysis boxplot, we saw that the median, 75th-percentile, and Maximum values were 5 seconds, 10 seconds, and 17 seconds, respectively. Given this range, I selected 20 seconds as the maximum acceptable time between polls.
+To build out the data, I decided on an approach where the time between logs was used to infer the time logged, but only within an acceptable time difference. If one log follows its predecessor by less than this difference, the time between the two is considered "Logged" time: if the delay is greater, we assume the device was taken off for that time. I selected 20 seconds as the maximum acceptable time between polls, based on the "Maximum" value from the boxplot of 17 seconds.
 
 ```{r analyse-night-usage-heartrate}
 # Analyse overnight usage using heart rate data
@@ -1970,7 +1950,7 @@ nights_logged_by_heart_rate <- heartrate_src_seconds_tall %>%
 
 ```
 
-```{r analyse-viz-night-usage-heartrate}
+```{r analyse-plot-night-usage-heartrate}
 # Plot histogram showing who logged what fraction of their nights
 viz_night_usage_heartrate <- plot_histo_pareto(nights_logged_by_heart_rate$nights_logged_pct, bin_width = 0.05) +
   labs(title = "Percentage of Nights Logged In Bed - HR Users Only",
@@ -1981,7 +1961,7 @@ print(viz_night_usage_heartrate)
 
 Given the small number of heart-rate users, I also compared the the heart-rate results directly to the sleep log results to see if there was any difference in the nights logged for individual IDs:
 
-```{r analyse-viz-sleep-logs-vs-heartrate-logs}
+```{r analyse-plot-sleep-logs-vs-heartrate-logs}
 # Visualise sleep logs vs heart rate logs
 sleep_data_merged <- merge(nights_logged_by_sleep_log, nights_logged_by_heart_rate, by = "id", all = TRUE) %>%
   select(id, pct_logged_asleep, nights_logged_pct) %>%
@@ -2004,26 +1984,28 @@ print(viz_sleep_logs_vs_hr_logs)
 
 For those IDs present in both data sets, the results were almost identical, with only three users showing variation equating to 2-3 nights, indicating the method is valid.
 
-Preliminary Findings:
+#### Preliminary Findings
 
+* Out of all users in the data set, very few users were logging, with 36% (12 users) logging between 0% and 5% of nights, and a majority of 51% (17 users) logging 10% of nights or fewer
+* Out of users with sleep log data, the results were more evenly spread, with 37% (9 users) logging 0% to 15% of nights, and another 42% (10 users) logging 70% to 90% of nights.
+* Given the ubiquity of sleep-tracking functionality amongst FitBit devices, these findings indicated that the majority of users were not making use of this function.
 * Out of all users, 73% (24 users) did not log any heartrate-based sleep logs.
 * Out of all users, 42% (14 users) logged heart-rate data
 * Out of those users, the results were split, with 50% (7 users) logging sleep on 35% to 90% of nights, and the other 50% logging sleep on 0% to 15% of nights
-* The heart-rate-based analysis produces the same results for individual users as the sleep-log-based analysis
-* Overall, the results reinforce the findings of the sleep-log analysis, but only for the smaller sub-set of users that have devices with heart-rate tracking.
+* The heart-rate-based analysis produced the same results for individual users as the sleep-log-based analysis
+* Overall, the heart rate-based results reinforced the findings of the sleep-log analysis for the relevant users.
 
 ## Sleep Tracking
-### Feature Overview
-### Analysis
-#### How many people used the sleep tracking feature?
+
+TODO: Feature overview when it's the start of the day, not the end
+
+### How many people used the sleep tracking feature?
 
 From the previous analysis for the Readiness Score feature, we know that sleep tracking is not commonly used, with a majority of 51% (17 users) logging 10% of nights or fewer, and the remainder spread out over a range up to 90% of nights.
 
-#### What quantity of sleep are users getting?
+### What quantity of sleep are users getting?
 
-* Sleep is ranked as Awake, Restless, or Asleep
-* Quantity and quantity can be tracked as time spent Asleep as a percentage of total logged
-* Quality can also be tracked as 
+Sleep logs in the data set rank sleep quality as Awake, Restless, or Asleep. To analyse the quantity of sleep in the cohort, I calculated the total time spent Asleep for each user:
 
 ```{r analyse-sleep-quantity}
 # Analyse sleep quantity and quality
@@ -2049,7 +2031,7 @@ sleep_sum_quant_qual_mean <- sleep_sum_quant_qual %>%
 
 ```
 
-```{r analyse-viz-sleep-quantity}
+```{r analyse-plot-sleep-quantity}
 # Visualise sleep quantity
 plot_histo_pareto(sleep_sum_quant_qual_mean$hours_total_mean, bin_width = 1) +
   labs(title = "Average Hours Asleep",
@@ -2057,34 +2039,32 @@ plot_histo_pareto(sleep_sum_quant_qual_mean$hours_total_mean, bin_width = 1) +
 
 ```
 
-Preliminary Findings:
+#### Preliminary Findings
 
 * The results appear realistic: the mean and median are 6.9 and 7.4 hours, respectively, with 79% of users (19 users) getting between 6 and 9 hours of sleep on average
 
-#### What quality of sleep are users getting?
+### What quality of sleep are users getting?
 
-```{r analyse-viz-sleep-quality}
+To analyse the quantity of sleep in the cohort, I calculated the time spent Asleep as a percentage of total Sleep Time logged for each user:
+
+```{r analyse-plot-sleep-quality}
 # Visualise sleep quality
-plot_histo_pareto(sleep_sum_quant_qual_mean$pct_awake_mean, bin_width = 0.05) +
-  labs(title = "Percentage of Sleep Logs Spent Awake",
-       x= "% of Time")
-plot_histo_pareto(sleep_sum_quant_qual_mean$pct_restless_mean, bin_width = 0.05) +
-  labs(title = "Percentage of Sleep Logs Spent Restless",
-       x= "% of Time")
+
 plot_histo_pareto(sleep_sum_quant_qual_mean$pct_asleep_mean, bin_width = 0.05) +
   labs(title = "Percentage of Sleep Logs Spent Asleep",
        x= "% of Time")
-
 ```
 
-Preliminary Findings:
+#### Preliminary Findings
 
 * The majority of users appear to be getting high-quality sleep, with 88% of users logging between 90% and 95% of time as Asleep
 * Time spent Awake is almost nil, with 88% of users logging less than 5% of time asleep. This is likely due to the programming of the FitBit devices, which feature an automatic sleep logging function that kicks in when it detects the user may be asleep, based on movement and heart rate data
 
-#### Did sleep quantity or quality improve over time?
+### Did sleep quantity or quality improve over time?
 
-```{r analyse-viz-sleep-over-time-bruteforce, eval=FALSE}
+I applied my previous analysis of time correlations to my measures for sleep quality and quantity:
+
+```{r analyse-plot-sleep-over-time-bruteforce, eval=FALSE}
 # Brute-force visualisation of overall sleep quality over time
 ggplot(sleep_sum_quant_qual,
        aes(x = sleep_date,
@@ -2100,31 +2080,31 @@ ggplot(sleep_sum_quant_qual,
              hjust = -0.1,
              vjust = 1.1) +
   facet_wrap(vars(id))
-# Brute-force Preliminary Findings: Most lines are flat, with some (5-6) that are slightly down
+# Brute-force #### Preliminary Findings Most lines are flat, with some (5-6) that are slightly down
 
 ```
 
-I analysed sleep quantity and quality over time by calculating the coefficients with time of "total hours asleep" and "percentage of time awake", respectively:
+I analysed sleep quantity and quality over time by calculating the coefficients with time of "total hours asleep" and "percentage of time asleep", respectively:
 
-```{r analyse-viz-sleep-quantity-over-time}
+```{r analyse-plot-sleep-quantity-over-time}
 # Visualise changes in sleep quantity over time
 get_time_coefficients_plot(sleep_sum_quant_qual$id,
                          sleep_sum_quant_qual$sleep_date,
                          sleep_sum_quant_qual$minutes_asleep) +
-  labs(title = "Coefficient of Time: Total Time Asleep")
+  labs(title = "Correlation Coefficents for Average Total Time Asleep vs. Time")
 
 ```
 
-```{r analyse-viz-sleep-quality-over-time}
+```{r analyse-plot-sleep-quality-over-time}
 # Visualise changes in sleep quality over time
 get_time_coefficients_plot(sleep_sum_quant_qual$id,
                            sleep_sum_quant_qual$sleep_date,
                            sleep_sum_quant_qual$pct_asleep) +
-  labs(title = "Coefficient of Time: % of Time Asleep")
+  labs(title = "Correlation Coefficents for Average Proportion of Time Asleep vs. Time")
 
 ```
 
-Preliminary Findings:
+#### Preliminary Findings
 
 * The correlations for sleep quantity and quality formed approximately-normal distributions around zero, indicating no consistent increase for either variable
 * Sleep quantity appeared to decrease slightly, with mean and median correlations of -0.09 and -0.13, respectively
@@ -2133,24 +2113,17 @@ Preliminary Findings:
 * The quantity and quality of sleep for this cohort of users was already relatively good, with the majority of users getting between 6-9 hours sleep, and spending upwards of 90% of that time in a stable Asleep state.
 
 ## Resting Heart Rate and Cardiac Coherence
-### Feature Overview
 
-Although the FitBits in the data set do have heart rate and breathing rate tracking, there is no data for resting heart rate or cardiac coherence specifically. What I can analyse is the data on heart-rate tracking generally, specifically:
+Although the FitBits in the data set did have heart rate tracking, and some models from the period had a "Breathing Exercise" feature, there was no data for resting heart rate or cardiac coherence specifically. What I could analyse was the data on heart-rate tracking generally, asking questions including:
 
-* How often do people track their heart-rates, either during the day or during the night?
-* When people do track their heart-rates, what level of activity are they engaged in? I.e. are they only putting their trackers on to exercise, or do they wear them during lower-activity or sedentary periods?
+* How often did people track their heart-rates, either during the day or during the night?
+* When people did track their heart-rates, what level of activity were they engaged in? I.e. were they only putting their trackers on to exercise, or did they wear them during lower-activity or sedentary periods?
 
-This will help me understand whether or not the RHR and CC functions will appeal to the user base: for instance, users who rarely wear their existing heart-rate monitors, or only wear them during intense exercise, may be less likely to care about their longer-term cardiac performance.
+Answering these questions would help me understand whether or not the RHR and CC functions would appeal to the user base: for instance, users who rarely wear their existing heart-rate monitors, or only wear them during intense exercise, might be less likely to care about their longer-term cardiac performance.
 
-### Analysis
-#### How often do people track their heart-rate?
-##### Nighttime Usage
+### How often do people track their heart-rate?
 
-From my previous analysis on heart-rate data, we know that overnight heart-rate tracking is split, with 50% (7 users) logging sleep on 35% to 90% of nights, and the other 50% logging sleep on 0% to 15% of nights.
-
-##### Daytime Usage
-
-I can adapt the code from the nighttime analysis to investigate daytime usage:
+From my previous analysis on heart-rate data, I knew that overnight heart-rate tracking was split, with 50% (7 users) logging sleep on 35% to 90% of nights, and the other 50% logging sleep on 0% to 15% of nights. I adapted this analysis of nighttime heart rate logging to investigate daytime usage:
 
 ```{r analyse-daytime-heartrate-usage}
 # Find nights where enough heart-rate data was logged to imply the user slept with their FitBit on
@@ -2199,7 +2172,7 @@ periods_logged <- periods_logged %>%
 
 ```
 
-```{r analyse-viz-daytime-heartrate-usage}
+```{r analyse-plot-daytime-heartrate-usage}
 # Plot histogram showing who logged what fraction of their nights
 plot_histo_pareto(periods_logged$periods_pct, bin_width = 0.05) +
   labs(title = "Percentage of Periods Logged",
@@ -2207,13 +2180,13 @@ plot_histo_pareto(periods_logged$periods_pct, bin_width = 0.05) +
 
 ```
 
-Preliminary Findings:
+#### Preliminary Findings
 
 * Daytime logging is much more popular than nighttime logging
 * 50% of users (7 users) logged 6 hours on between 80% to 95% of days
 * The other 50% of users logged on between 0% and 75% of days
 
-#### What levels of activity do people typically track?
+### What levels of activity do people typically track?
 
 First the naive approach: What percentage of various users' time is spent in what heart-rate zone?
 
@@ -2253,7 +2226,7 @@ hr_zone_data_long <- hr_zone_data %>%
 
 ```
 
-```{r analyse-viz-intensity-levels}
+```{r analyse-plot-intensity-levels}
 # Visualise intensity levels analysis
 ggplot(hr_zone_data_long, aes(x= id, y= count, fill= hr_zone)) +
   geom_bar(stat = "identity",
@@ -2265,14 +2238,15 @@ ggplot(hr_zone_data_long, aes(x= id, y= count, fill= hr_zone)) +
 
 ```
 
-Preliminary Findings:
+#### Preliminary Findings
 
-* The majority of logs for all but one user are in the "Sedentary" category, which equates to less than 95 bpm
-* It is fair to assume therefore that users are not only using their heart-rate trackers for exercise
-* There should be ample data to determine a user's resting heart rate from the daytime data, even if there is little nighttime data
+* The majority of logs for all but one user were in the "Sedentary" category (heart rate < 95 bpm)
+* This supported the hypothesis that users were not only using their heart-rate trackers for exercise
+* There appeared to be ample data for Ivy devices to determine a user's resting heart rate from the daytime data, even if there was little nighttime data
+* This reliance on daytime data might skew the values up, since users are more likely to be at least somewhat active during the day than while asleep
 
 ## Features without Data
-### Feature Overview
+
 Several functions and features of the Ivy are not present on the FitBits in the data set. Given the lack of data, it's not possible to directly analyse existing user behaviours with respect to these features, which include:
 
 * Respiratory Rate
@@ -2280,7 +2254,6 @@ Several functions and features of the Ivy are not present on the FitBits in the 
 * Mindfulness Minute Tracking
 * Menstrual Cycle
 * Wellness Score
-
 
 # REVIEW: Step 5: Share
 
@@ -2291,21 +2264,20 @@ TODO:
 * Replace raw ID strings with letters for brevity
 * Center images in text
 * Pick a consistent theme
-* Add green Cumulative Percentage of Users line to plot_histo_pareto()
-* Standardise Mean/Median captions and 
-
+* Add green Cumulative Percentage of Users line to legend in plot_histo_pareto()
+* Standardise Mean/Median captions
 
 > Most users don't get much exercise
 
 Visualising how much time individual users spent in each zone shows a clear bias towards sedentary and lightly-active zones:
 
-```{r share-viz-avg-time-by-intensity, echo=FALSE, fig.dim = c(6, 4), fig.cap = "AYO THIS A FIG.CAP"}
+```{r share-plot-avg-time-by-intensity, echo=FALSE, fig.dim = c(6, 4), fig.cap = "AYO THIS A FIG.CAP"}
 print(viz_avg_time_by_intensity)
 ```
 
 Visualising the frequency of Active Hours across all users shows a right-skewed distribution, with most users getting little exercise and a small number of outliers logging higher numbers:
 
-```{r share-viz-active-hrs-per-week, echo=FALSE}
+```{r share-plot-active-hrs-per-week, echo=FALSE}
 print(viz_active_hrs_per_week)
 ```
     
@@ -2313,31 +2285,31 @@ print(viz_active_hrs_per_week)
 
 By visualising Very Active Time as a percentage of Active Time (the sum of Very Active and Fairly Active time), I found a fairly symmetrical, bimodal distribution, with approximately equal numbers of users favouring low- and high-intensity activity:
 
-```{r share-viz-very-active-proportion, echo=FALSE}
+```{r share-plot-very-active-proportion, echo=FALSE}
 print(viz_very_active_proportion)
 ```
 
 More time spent active is only loosely related to more time spent at high intensities, with a wider range of times and percentages at the bottom than the top: 
 
-```{r share-viz-very-active-vs-total-active, echo=FALSE}
+```{r share-plot-very-active-vs-total-active, echo=FALSE}
 print(viz_very_active_vs_total_active)
 ```
 
 > Users get around 7500 steps in per day on average
 
-```{r share-viz-mean-daily-steps, echo=FALSE}
+```{r share-plot-mean-daily-steps, echo=FALSE}
 print(viz_mean_daily_steps)
 ```
     
 > Walking is much more popular than running:
 
-```{r share-viz-walking, echo=FALSE}
+```{r share-plot-walking, echo=FALSE}
 print(viz_walking_speed_frequency)
 ```
 
 > Exercise intensity did not increase over time
 
-```{r share-viz-all-intensity-over-time, echo=FALSE}
+```{r share-plot-all-intensity-over-time, echo=FALSE}
 print(viz_all_intensity_over_time)
 ```
 
@@ -2345,13 +2317,13 @@ print(viz_all_intensity_over_time)
 
 Average daily steps decreased slightly over time for most users:
 
-```{r share-viz-mean-daily-steps-vs-time, echo=FALSE}
+```{r share-plot-mean-daily-steps-vs-time, echo=FALSE}
 print(viz_mean_daily_steps_vs_time)
 ```
 
 Average time spent walking daily also decreased slightly over time for most users, at all speeds:
 
-```{r share-viz-all-walking-over-time, echo=FALSE}
+```{r share-plot-all-walking-over-time, echo=FALSE}
 print(viz_all_walking_over_time)
 ```
 
@@ -2359,7 +2331,7 @@ print(viz_all_walking_over_time)
 
 The data shows a strong correlation between time spent exercising and distance covered, which indicates users prefer mobile exercise; if the opposite was true and users spent their active time stationary, we would have seen more users with higher active minutes but low distance.
 
-```{r share-viz-distance-vs-activity, echo=FALSE}
+```{r share-plot-distance-vs-activity, echo=FALSE}
 print(viz_distance_vs_activity)
 ```
 
@@ -2367,19 +2339,19 @@ print(viz_distance_vs_activity)
 
 The majority of users log sleep on no or a minority of nights, with a long tail of users who log an increasing majority of nights:
 
-```{r share-viz-night-usage-sleep-logs, echo=FALSE}
+```{r share-plot-night-usage-sleep-logs, echo=FALSE}
 print(viz_night_usage_sleep_logs)
 ```
 
 Analysis of those users who logged heart-rate data shows a similar trend for overnight heart-rate logging:
 
-```{r share-viz-night-usage-heartrate, echo=FALSE}
+```{r share-plot-night-usage-heartrate, echo=FALSE}
 print(viz_night_usage_heartrate)
 ```
 
 Sleep logs and heart-rate logs are comparable for users with data for both:
 
-```{r share-viz-sleep-logs-vs-hr-logs, echo=FALSE}
+```{r share-plot-sleep-logs-vs-hr-logs, echo=FALSE}
 print(viz_sleep_logs_vs_hr_logs)
 ```
 
@@ -2399,52 +2371,43 @@ Several functions and features of the Ivy are not present on the FitBits in the 
 * Menstrual Cycle
 * Wellness Score
 
-# REVIEW: Step 6: Act
+# Step 6: Act
 
-In which I summarise my recommendations
+TODO: Embed images
 
-* Push hard on any features not used much as a value-add to the customer
+Based on the findings in the previous section, I present the following recommendations for the marketing strategy for the Bellabeat Ivy
 
-### Recommendations: Heart Rate Tracking, Activity Tracking, and Step Counts
+> Promote overnight device wear as a value-add practice, but highlight device comfort equally
 
-> Consumer behaviour may be conducive to the Resting Heart Rate feature
+The analysis indicated that the majority of users do not wear their devices overnight. This is a potential problem for marketing, as a number of key features of the device, including the Readiness Score, Resting Heart Rate tracking, Cardiac Coherence, and Sleep Tracking will function in a reduced capacity, or not at all, if the device cannot gather data from the user overnight. In the Help documentation for the Ivy it is explicitly stated that, for the Readiness Score feature, ["To fully calibrate your baseline and get more reliable readiness score results you must wear your Ivy for 30 nights."](https://support.bellabeat.com/hc/en-us/articles/360020620059-Readiness-Score) Marketing materials should therefore highlight these features as beneficial to the user _as a result_ of overnight wear to encourage this practice. This will in turn allow these functions to be positioned as value-add features that do more with the data that is gathered overnight than competing products.
 
-* Existing consumers do not make much use of heart rate tracking overnight, despite this being a key part of the functionality of the Resting Heart Rate feature. Consumers do, however, log a lot of day-time data, and the majority of this data indicates low-intensity conditions
-* Current user behaviors are therefore conducive to the Resting Heart Rate feature, but may result in higher-than-expected values as the RHR data will be skewed towards time spent awake rather than time spent asleep
+One obvious reason why users may not be wearing their devices overnight is comfort. One of the FitBit manuals referenced in my research makes explicit mention of this, informing the user that ["wearing your tracker 24/7 does not allow your skin to breathe"](https://myhelp.fitbit.com/resource/manual_surge_en_US). The design of the Ivy may not be helping matters here: it has a more angular, protruding body than typical "watch"-type wearables, which may negatively impact overnight comfort.
 
-* To appeal to the FitBit market, the marketing for the Ivy's exercise tracking should highlight a broad range of activities ranging from gentle to more intense. The marketing should not target highly-athletic groups, as these represent only a small part of the user base.
-* The marketing for the Ivy should avoid any claims that users will increase their activity levels or their step counts as a result of their purchasing the device, as the data does not support this claim.
-* The cohort does appear to engage in outdoor activities that cover long distances such as running, as opposed to stationary activities such as gym workouts, so the marketing can highlight activities like light jogging, walking dogs, and cycling
+!(Bellabeat Ivy on woman's wrist)[https://bellabeat.com/wp-content/uploads/2022/05/RHR-1.jpg]
 
-### Recommendations: Readiness Score
+To mitigate these potential consumer concerns, the marketing should highlight the hypo-allergenic and hygenic aspects of the materials used in the Ivy, positioning these as keeping users comfortable during overnight wear.
 
-* Overnight usage of FitBits appears to be split between a large majority who rarely wear their devices overnight, and a smaller minority who wear more frequently, up to 90% of the time
-* The Readiness Score can therefore be marketed as a value-add feature that produces more useful information when worn to bed than competing products
-* The non-allergenic materials used in the Ivy should be used to highlight the comfort aspects of the device when marketing features that require overnight wearing, as discomfort from overnight wear may be one of the factors contributing to the low utilisation of sleep logging in existing products.
+> Showcase users in a broad range of activities, rather than focusing on athleticism
 
-### Recommendations: Sleep Tracking
+To appeal to the FitBit market, marketing materials for the Ivy's exercise tracking features should highlight a broad range of activities ranging from gentle to more intense. The marketing should not target highly-athletic groups, as these represent only a small part of the user base.
 
-* Most users are not logging sleep
-* Those that are appear to already be getting high-quality sleep
-* There is nothing to indicate the use of the FitBits improved the quantity or quality of their sleep above this high baseline
+> Focus on mobile activities over stationary activities
 
-* Don't market this feature as something that will improve your sleep
-* Instead, given the consistency of users in getting their sleep, as evidenced by the small correlation with time for sleep quantity and quality, the Sleep Tracking could be marketed more as a way of tracking and reinforcing the user's existing good sleep habits 
-* As with the Readiness Score, marketing teams could frame the feature more as a way of getting a heads-up on days where you haven't slept well, since most of the time the feature would just tell users (from this cohort, at least) that they just had a reasonably good night's sleep. This would work well with the "track existing habits" marketing angle: think "You're great at giving your body the sleep it needs, but for those nights where things just don't work out, Ivy can give you guidance on whether you're up for the day, or better off taking it down a notch to recover."
-* If it exists, highlight a manual-activation mode for the Sleep Tracking mode. The low amount of non-Asleep data in this data set may be a result of people mostly using the automatic mode, which is convenient, but doesn't track time spent *trying* to get to sleep: a manual-activation feature could therefore be pushed harder as a sort of second feature that gets better data on how you go getting to sleep.
+Users were found to preference mobile activities, with very little evidence of high-intensity, low-distance exercise in the data set. Marketing materials should therefore focus on mobile, outdoor activites like light jogging, walking dogs, and cycling, instead of stationary activites like gym workouts.
 
-### Recommendations: RHR and CC
+> Focus on walking over running
 
-* In order to match current user behaviours, the marketing for the Resting Heart Rate should emphasise daytime usage: for instance, advertise that the feature will help understand your resting heart rate during your work day, 
-* The data indicates that users typically do not log overnight, which may impact the performance of this feature: part of the usefulness of the feature comes from calibrating the data based on overnight heart-rate, so if users are not wearing overnight, the resting heart rate value may be skewed upward s as it is based primarily on daytime usage
-* The marketing should therefore encourage users to wear overnight, highlighting the synergy between this and the Readiness Score feature to maximise the likelihood that users wear overnight, and therefore the accuracy of both features
-* If users do not wear their devices overnight, they are unlikely to see the benefits and may consider other, less-featured but cheaper devices for their next purchase
+The data showed that running was not particularly popular in the user group, so marketing materials can highlight walking over running, perhaps using the additional focus to highlight a range of people and locations.
 
-### Recommendations: Features without Data
+> Avoid implying that device usage will make users exercise more or sleep better
 
-* These features can all be marketed as improvements and additions over the functionality of existing FitBits.
-* As discussed with regards to the Readiness score, marketing for any feature that requires overnight wear, like the Cardiac Coherence tracking, should take into account the low utilisation of existing overnight functions like sleep tracking seen in the existing data.
+The marketing for the Ivy should avoid any claims that users will increase their activity levels, their step counts, or their sleep quantity or quality as a result of their purchasing the device, as the analysis does not support this claim. The analysis actually showed the opposite effect, with users typically decreasing on these metrics.
 
+The analysis did find that most users were consistently getting a good amount of high-quality sleep, even if this did not improve over time. The Sleep Tracking can therefore be marketed more as a way of tracking and reinforcing the user's existing good sleep habits than as a way of improving them. If a manually-activated sleep tracking mode exists, this should be highlighted as well, as users may get more-representative sleep logs if they include time spent trying to get to sleep, rather than relying on the device to detect sleep and only then start logging.
+
+> Highlight the benefits of daytime Resting Heart Rate data
+
+The analysis found that, while most users do not log heart rate data overnight, most do log heart rate data during the day. This indicates that, while the primary benefit of the Resting Heart Rate (RHR) function comes from recording deep sleep overnight, there is still an angle to promote the function on the basis of daytime usage. Daytime RHR can be promoted as a measure of overall health or even a target in its own right: for example, some users may wish to track a lowering daytime RHR as an indicator of improved cardiac performance during a training regime. These may not be as easy a sell as the overnight RHR, but they have the advantage of aligning better with existing user behaviours.
 
 # Appendices
 

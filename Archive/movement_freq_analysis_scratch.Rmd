@@ -1,0 +1,20 @@
+As an alternative visualisation, I also plotted a histogram comparing just the non-immobile categories:
+
+```{r analyse-plot-movement-frequencies}
+viz_walking_speed_frequency <- ggplot(mean_movement_times_long %>% filter(speed != "not_walking")) +
+  theme_pubclean() +
+  geom_histogram(aes(x = mean_hours,
+                     fill = speed),
+                 binwidth = 0.25,
+                 position = "dodge",
+                 color = "black") +
+  scale_x_continuous(breaks = seq(0, 5, by = 0.25)) +
+  # theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Frequency of Average Walking Hours by Walking Speed",
+       x = "Mean Hours",
+       y = "Users")
+print(viz_walking_speed_frequency)
+
+```
+
+This plot breaks out the visualisation of the less-common walking speeds for easier comparison: it can be seen clearly that the majority of users are getting half an hour or less of Active Walking per day, but more than two hours of Moderate Walking per day.

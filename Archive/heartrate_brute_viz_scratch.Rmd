@@ -1,0 +1,31 @@
+
+Taking the brute-force approach to plotting the data for each user makes it much easier to visualise the patterns in user behaviour:
+
+TODO: Widen out this plot
+
+```{r analyse-plot-all-heartrate-data}
+# Visualise overnight device usage using heart rate data
+data <- heartrate_src_seconds_tall %>%
+    mutate(is_nighttime = hour(heart_rate_second) >= 22 | hour(heart_rate_second) < 6)
+p <- ggplot(data) +
+  geom_point(aes(x = heart_rate_second,
+                 y = heart_rate,
+                 color = is_nighttime),
+             size = 0.1,
+             shape = 3) +
+  facet_wrap(vars(id))
+print(p)
+
+
+ggsave("viz_all_heartrate_data.png",
+       plot = p,
+       device = "png",
+       width = 3840,
+       height = 2160,
+       units = "px")
+
+rm(data)
+
+```
+
+Once R is done chewing through the data, we can see that all users have clear gaps in their heart-rate logs.
