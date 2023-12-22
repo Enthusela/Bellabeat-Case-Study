@@ -206,28 +206,31 @@ All of the numeric variables in the data set have clearly defined units except f
 
 #### Missing context for factor variables
 
-Two variables in the data set, "Intensity" (for exercise) and "Value" (for sleep), are numerical factors with no defined range. For these factors, I couldn't tell from the data alone whether all possible values that a FitBit can record are present. The values for exercise intensity, for example, range from 0 to 3; it could have been the case that the FitBits used only generate four levels of intensity, but it could just as easily have been that the values go up to 100 (i.e. a percentage). This had clear implications for the analysis: if 3 was the max, records of 3 indicated users wear their FitBits while exercising as hard as they can, whereas if 100 was the max, records of 3 indicated users wear their FitBits while sitting on the couch as hard as they can. The meaning of these variables had to be validated before the analysis could continue.
+Two variables in the data set, "Intensity" (for exercise) and "Value" (for sleep), are numerical factors with no defined range. For these factors, I couldn't tell from the data alone whether all possible values that a FitBit can record are present, or what real-world states the numeric values represented. Analysis of the factor variables confirmed they followed the mappings listed below:
 
-### Validating "Exercise Intensity"
-
-As discussed above, the exercise-related "Intensity" variable is a numerical factor with no defined range: the meaning and limits of this variable had to be determined before the analysis could proceed. I started by determining the range of values present in the source Intensity data:
-
-```{r prep-get-intensity-range, results = 'markdown'}
-# Display all unique Exercise Intensity values
-print(unique(intensity_src_mins_tall$Intensity))
-
-```
-
-The "activity_sum_days_wide" table provided some context clues as to what these four levels might mean: the table summarised Intensity data into four new variables which, based on their names, appeared to be associated with intensity levels as follows:
+Exercise Intensity:
 
 1. Sedentary
 2. Lightly Active
 3. Fairly Active
 4. Very Active
 
-I confirmed this naming convention by using it to reconstruct the daily summary data in "activity_sum_days_wide", then comparing the two tables and investigating any rows with non-zero differences:
+Sleep Value
 
-```{r prep-compare-intensity-data, results = 'markdown'}
+* 1: Asleep
+* 2: Restless
+* 3: Awake
+
+Full details of the analysis can be found in Appendix A.
+
+```{r vrfy-get-intensity-range}
+# Display all unique Exercise Intensity values
+unique_intensities <- unique(intensity_src_mins_tall$Intensity)
+print(unique_intensities)
+
+```
+
+```{r vrfy-compare-intensity-data}
 # Reconstruct the summary intensity data for comparison with the original
 activity_sum_days_wide_test <- intensity_src_mins_tall %>%
     mutate(activity_date_floored = floor_date(mdy_hms(ActivityMinute), unit = "days")) %>%
@@ -272,78 +275,18 @@ intensity_daily_comp <- activity_sum_days_wide %>%
 
 cat("Printing all rows with non-zero diff values:\n")
 glimpse(intensity_daily_comp)
-rm(activity_sum_days_wide_test, intensity_daily_comp)
+rm(activity_sum_days_wide_test)
 
 ```
 
-The approach above produced no errors, except for the "sedentary minutes" calculation, which was consistently higher in the reconstructed data.
-
-I concluded that I got the mapping correct, given that:
-
-a) The values were consistently higher by at least 6 hours: this appeared to be due to my method counting time asleep as "sedentary minutes", which is reasonable
-b) Reversing the order of the mapping produced entirely wrong results.
-
-That being said, I still didn't know if those were the categories FitBits work in, not another naming convention that the data authors came up with, and I didn't know if all FitBit models worked this way. To address this, I referred to the manuals of the relevant FitBits.
-
-Activity trackers like FitBits detect activity intensity partly by measuring the user's heart rate while exercising: a higher heart rate corresponds with a higher degree of exertion. As of April 2016, the three latest FitBit models with heart-rate tracking were:
-
-* FitBit Blaze [(released January 2016)](https://www.youtube.com/watch?v=3k3DNT54NkA)
-* FitBit Charge HR [(released January 2015)](https://blog.fitbit.com/charge-hr-and-surge-available-now-plus-new-charge-colors/)
-* FitBit Surge [(released January 2015)](https://blog.fitbit.com/charge-hr-and-surge-available-now-plus-new-charge-colors/)
-
-The product manuals for each model confirmed they all break down user activity into four default heart-rate zones:
-
-|Product|HR Zone 1|HR Zone 2|HR Zone 3|HR Zone 4|
-|:------|:----:|:----:|:----:|:----:|
-|[FitBit Blaze](https://staticcs.fitbit.com/content/assets/help/manuals/manual_blaze_en_US.pdf)           |"Out of Zone"|"Fat burn"|"Cardio"|"Peak"|
-|[FitBit Charge HR](https://staticcs.fitbit.com/content/assets/help/manuals/manual_charge_hr_en_US.pdf)   |"Out of Zone"|"Fat burn"|"Cardio"|"Peak"|
-|[FitBit Surge](https://myhelp.fitbit.com/resource/manual_surge_en_US)                                    |"Out of Zone"|"Fat burn"|"Cardio"|"Peak"|
-
-While those weren't exactly the same terms as used in the data set, they were clearly related - "Out of Zone" equated to "Sedentary", for example. 
-
-All three FitBit manuals also made the same claim that the default zones were "based on American Heart Association recommendations". Even without [validating that claim](https://www.heart.org/en/healthy-living/fitness/fitness-basics/aha-recs-for-physical-activity-in-adults), it indicated to me that the reasoning behind each zone was not arbitrary, and was consistent across devices, so I concluded that any other FitBit models circa 2016 would follow the following classification scheme:
-
-0. Sedentary Minutes
-1. Lightly Active Minutes
-2. Fairly Active Minutes
-3. Very Active Minutes
-
-### Validating "Sleep Value"
-
-As discussed above, the sleep-related "Value" variable is a numerical factor with no defined range: the meaning and limits of this variable had to be determined before the analysis could proceed. As with exercise intensity, I started by determining the range of values present in the data:
-
-```{r prep-get-sleep-value-range, results = 'markdown'}
+```{r vrfy-get-sleep-value-range}
 # Display all unique Sleep Value values
-print(unique(sleep_src_mins_tall$value))
+unique_sleep_values <- unique(sleep_src_mins_tall$value)
+print(unique_sleep_values)
 
 ```
 
-The values for sleep quality range from 1 to 3. The summary data tables for sleep quality introduced only two new variable names: "Total Time In Bed", and "Total Minutes Asleep". There wasn't a valid name for each level of factor like there was for exercise, so in this case I referred straight back to the manuals:
-
-* Blaze: tracks "both your time spent asleep and your sleep quality"
-* Charge HR: tracks "the hours you sleep and your movement during the night"
-* Surge: tracks "the hours you sleep and your movement during the night"
-
-Further research in the FitBit help pages on [how to track sleep stats](https://help.fitbit.com/articles/en_US/Help_article/1314.htm) and [what they all mean](https://help.fitbit.com/articles/en_US/Help_article/2163.htm) revealed that different devices track slightly different data if they have heart rate tracking:
-
-* No HR tracking: Generic sleep quality tracking with "Time spent awake, restless, and asleep" categories
-* HR tracking: Sleep stage tracking with "Light Sleep, Deep Sleep, and REM Sleep" stages
-
-The help pages also singled out the Charge HR and the Surge as the only HR-tracking FitBits to _not_ have full sleep stage tracking, leaving the Blaze as the only device from this time period with that feature. Blaze aside, motion-based sleep quality tracking appeared to go all the way back to the [FitBit One](https://myhelp.fitbit.com/s/products?language=en_US&p=one). Given this information, I concluded that any other FitBit models circa 2016 would follow the following classification scheme for the sleep data:
-
-* 1: Awake
-* 2: Restless
-* 3: Asleep
-
-My tests revealed that I had this backwards, and the actual scheme was:
-
-* 1: Asleep
-* 2: Restless
-* 3: Awake
-
-As with the intensity data, I confirmed this naming convention by using it to reconstruct the daily summary data in "activity_sum_days_wide", then comparing the two tables and investigating any rows with non-zero differences:
-
-```{r prep-compare-sleep-value-data, results = 'markdown'}
+```{r vrfy-compare-sleep-value-data}
 # Reconstruct the summary sleep data for comparison with the original
 sleep_sum_days_wide_test <- sleep_src_mins_tall %>%
     # mutate(date_typed = mdy_hms(date)) %>%
@@ -397,11 +340,8 @@ sleepDay_comp <- sleep_sum_days_wide %>%
 
 cat("Printing all rows with non-zero diff values:\n")
 glimpse(sleepDay_comp)
-rm(sleep_sum_days_wide_test, sleepDay_comp)
 
 ```
-
-The two +500-minute values were investigated and found to be the result of double-sampling in the data. That day had two duplicate logs, which in the original sum data was presented as two duplicate rows with the accurate 500-minute value, and in my data was presented as two rows with the full 1000 minutes of data summed. All other rows were identical to or within 22 minutes of the original, which I considered accurate enough to validate the mapping.
 
 # Step 3: Clean
 ## Data Cleaning Checklist
@@ -2423,7 +2363,114 @@ print_chunk_with_label <- function(label) {
   }
 }
 ```
-## Appendix A: "Prepare" Stage Code
+
+## Appendix A: Verifying factor variables
+### Validating "Exercise Intensity"
+
+As discussed above, the exercise-related "Intensity" variable is a numerical factor with no defined range: the meaning and limits of this variable had to be determined before the analysis could proceed. I started by determining the range of values present in the source Intensity data:
+
+```{r ref.label="vrfy-get-intensity-range", echo=TRUE, eval=FALSE}
+```
+
+```{r vrfy-print-intensity-range, results='markdown'}
+print(unique_intensities)
+```
+
+The "activity_sum_days_wide" table provided some context clues as to what these four levels might mean: the table summarised Intensity data into four new variables which, based on their names, appeared to be associated with intensity levels as follows:
+
+1. Sedentary
+2. Lightly Active
+3. Fairly Active
+4. Very Active
+
+I confirmed this naming convention by using it to reconstruct the daily summary data in "activity_sum_days_wide", then comparing the two tables and investigating any rows with non-zero differences:
+
+```{r ref.label="vrfy-compare-intensity-data", echo=TRUE, eval=FALSE}
+```
+
+```{r vrfy-print-comp-intensity-data, results='markdown'}
+glimpse(intensity_daily_comp)
+```
+
+The approach above produced no errors, except for the "sedentary minutes" calculation, which was consistently higher in the reconstructed data.
+
+I concluded that I got the mapping correct, given that:
+
+a) The values were consistently higher by at least 6 hours: this appeared to be due to my method counting time asleep as "sedentary minutes", which is reasonable
+b) Reversing the order of the mapping produced entirely wrong results.
+
+That being said, I still didn't know if those were the categories FitBits work in, not another naming convention that the data authors came up with, and I didn't know if all FitBit models worked this way. To address this, I referred to the manuals of the relevant FitBits.
+
+Activity trackers like FitBits detect activity intensity partly by measuring the user's heart rate while exercising: a higher heart rate corresponds with a higher degree of exertion. As of April 2016, the three latest FitBit models with heart-rate tracking were:
+
+* FitBit Blaze [(released January 2016)](https://www.youtube.com/watch?v=3k3DNT54NkA)
+* FitBit Charge HR [(released January 2015)](https://blog.fitbit.com/charge-hr-and-surge-available-now-plus-new-charge-colors/)
+* FitBit Surge [(released January 2015)](https://blog.fitbit.com/charge-hr-and-surge-available-now-plus-new-charge-colors/)
+
+The product manuals for each model confirmed they all break down user activity into four default heart-rate zones:
+
+|Product|HR Zone 1|HR Zone 2|HR Zone 3|HR Zone 4|
+|:------|:----:|:----:|:----:|:----:|
+|[FitBit Blaze](https://staticcs.fitbit.com/content/assets/help/manuals/manual_blaze_en_US.pdf)           |"Out of Zone"|"Fat burn"|"Cardio"|"Peak"|
+|[FitBit Charge HR](https://staticcs.fitbit.com/content/assets/help/manuals/manual_charge_hr_en_US.pdf)   |"Out of Zone"|"Fat burn"|"Cardio"|"Peak"|
+|[FitBit Surge](https://myhelp.fitbit.com/resource/manual_surge_en_US)                                    |"Out of Zone"|"Fat burn"|"Cardio"|"Peak"|
+
+While those weren't exactly the same terms as used in the data set, they were clearly related - "Out of Zone" equated to "Sedentary", for example. 
+
+All three FitBit manuals also made the same claim that the default zones were "based on American Heart Association recommendations". Even without [validating that claim](https://www.heart.org/en/healthy-living/fitness/fitness-basics/aha-recs-for-physical-activity-in-adults), it indicated to me that the reasoning behind each zone was not arbitrary, and was consistent across devices, so I concluded that any other FitBit models circa 2016 would follow the following classification scheme:
+
+0. Sedentary Minutes
+1. Lightly Active Minutes
+2. Fairly Active Minutes
+3. Very Active Minutes
+
+### Validating "Sleep Value"
+
+As discussed above, the sleep-related "Value" variable is a numerical factor with no defined range: the meaning and limits of this variable had to be determined before the analysis could proceed. As with exercise intensity, I started by determining the range of values present in the data:
+
+```{r ref.label="vrfy-get-sleep-value-range", echo=TRUE, eval=FALSE}
+```
+
+```{r vrfy-print-sleep-value-range, results='markdown'}
+print(unique_sleep_values)
+```
+
+The values for sleep quality range from 1 to 3. The summary data tables for sleep quality introduced only two new variable names: "Total Time In Bed", and "Total Minutes Asleep". There wasn't a valid name for each level of factor like there was for exercise, so in this case I referred straight back to the manuals:
+
+* Blaze: tracks "both your time spent asleep and your sleep quality"
+* Charge HR: tracks "the hours you sleep and your movement during the night"
+* Surge: tracks "the hours you sleep and your movement during the night"
+
+Further research in the FitBit help pages on [how to track sleep stats](https://help.fitbit.com/articles/en_US/Help_article/1314.htm) and [what they all mean](https://help.fitbit.com/articles/en_US/Help_article/2163.htm) revealed that different devices track slightly different data if they have heart rate tracking:
+
+* No HR tracking: Generic sleep quality tracking with "Time spent awake, restless, and asleep" categories
+* HR tracking: Sleep stage tracking with "Light Sleep, Deep Sleep, and REM Sleep" stages
+
+The help pages also singled out the Charge HR and the Surge as the only HR-tracking FitBits to _not_ have full sleep stage tracking, leaving the Blaze as the only device from this time period with that feature. Blaze aside, motion-based sleep quality tracking appeared to go all the way back to the [FitBit One](https://myhelp.fitbit.com/s/products?language=en_US&p=one). Given this information, I concluded that any other FitBit models circa 2016 would follow the following classification scheme for the sleep data:
+
+* 1: Awake
+* 2: Restless
+* 3: Asleep
+
+My tests revealed that I had this backwards, and the actual scheme was:
+
+* 1: Asleep
+* 2: Restless
+* 3: Awake
+
+As with the intensity data, I confirmed this naming convention by using it to reconstruct the daily summary data in "activity_sum_days_wide", then comparing the two tables and investigating any rows with non-zero differences:
+
+```{r ref.label="vrfy-compare-sleep-value-data", echo=TRUE, eval=FALSE}
+```
+
+```{r vrfy-print-comp-sleep-value-data, results='markdown'}
+glimpse(sleepDay_comp)
+```
+
+The two +500-minute values were investigated and found to be the result of double-sampling in the data. That day had two duplicate logs, which in the original sum data was presented as two duplicate rows with the accurate 500-minute value, and in my data was presented as two rows with the full 1000 minutes of data summed. All other rows were identical to or within 22 minutes of the original, which I considered accurate enough to validate the mapping.
+
+
+## Appendix B: "Prepare" Stage Code
 
 ```{r prep-apdx-labels}
 prep_apdx_labs <- grep("^prep-", knitr::all_labels(), value = TRUE)
@@ -2440,7 +2487,7 @@ prep_apdx_labs <- grep("^prep-", knitr::all_labels(), value = TRUE)
 invisible(lapply(prep_apdx_labs, print_chunk_with_label))
 ```
 
-## Appendix B: "Clean" Stage Code
+## Appendix C: "Clean" Stage Code
 
 ```{r clean-apdx-labels, include=TRUE}
 clean_apdx_labs <- grep("^clean-", knitr::all_labels(), value = TRUE)
@@ -2449,7 +2496,7 @@ clean_apdx_labs <- grep("^clean-", knitr::all_labels(), value = TRUE)
 ```{r clean-apdx-code, ref.label=clean_apdx_labs, echo = TRUE, include = TRUE, eval=FALSE}
 ```
 
-## Appendix C: "Analyse" Stage Code
+## Appendix D: "Analyse" Stage Code
 
 ```{r analyse-apdx-labels, include=TRUE}
 analyse_apdx_labs <- grep("^analyse-", knitr::all_labels(), value = TRUE)
@@ -2458,7 +2505,7 @@ analyse_apdx_labs <- grep("^analyse-", knitr::all_labels(), value = TRUE)
 ```{r analyse-apdx-code, ref.label=analyse_apdx_labs, echo = TRUE, include = TRUE, eval=FALSE}
 ```
 
-## Appendix D: "Share" Stage Code
+## Appendix E: "Share" Stage Code
 
 ```{r share-apdx-labels, include=TRUE}
 share_apdx_labs <- grep("^share-", knitr::all_labels(), value = TRUE)
