@@ -1,9 +1,13 @@
 ---
 title: "Bellabeat Case Study Report"
-author: "Nathan"
-date: "2023-07-27"
+author: "Nathan Weaver"
+date: "2023-12-23"
 output: html_document
 ---
+
+# Introduction
+
+TODO
 
 # Step 1: Ask
 ## Business Task
@@ -75,7 +79,9 @@ knitr::opts_chunk$set(
 	echo = FALSE,
 	message = FALSE,
 	results = 'hide',
-	warning = FALSE
+	warning = FALSE,
+	out.width = "90%",
+	fig.align = "center"
 )
 
 # Load all required packages
@@ -112,6 +118,13 @@ print("Loading packages complete.")
 dir <- "/Users/nathanweaver/Documents/GitHub/Bellabeat Case Study"
 setwd(dir)
 cat("Set working directory to:", dir, "\n")
+```
+
+```{r prep-set-themes}
+# Set custom themes to apply to all plots
+gglayer_theme <- list(theme_linedraw())
+fig_width <- "90%"
+fig_align <- "center"
 ```
 
 ## Getting the data
@@ -217,9 +230,9 @@ Exercise Intensity:
 
 Sleep Value
 
-* 1: Asleep
-* 2: Restless
-* 3: Awake
+1. Asleep
+2. Restless
+3. Awake
 
 Full details of the analysis can be found in Appendix A.
 
@@ -395,7 +408,7 @@ Each data frame was checked for NULL values and non-null empty strings.
 
 The only table with missing data was "bodycomp_src_logs_wide", which was missing all but two of the data points for Body Fat Percentage. Given this lack of data, Body Fat Percentage was excluded from the data analysis.
 
-```{r clean-remove-nulls}
+```{r process-remove-nulls}
 # Remove all NULL and empty-string values
 cat("Checking for NULL/empty values...\n", sep="")
 for (df_name in df_names) {
@@ -455,7 +468,7 @@ Variables were cleaned and renamed were required according to the following spec
 | very_active_distance                    | distance_very_active                |
 | very_active_minutes                     | minutes_very_active                 |
 
-```{r clean-declare-var-update-fns}
+```{r process-declare-var-update-fns}
 # Declare all functions and global variables required for cleaning
 rename_df_variables <- function(df_name, var_mods) {
   cat("Renaming variables in \"",df_name,"\"...\n", sep = "")
@@ -532,7 +545,7 @@ var_mods <- var_mods %>%
 
 ```
 
-```{r clean-update-variable-names}
+```{r process-update-variable-names}
 # Clean and update all variables in data set
 cat("Cleaning variable names...\n", sep = "")
 for(df_name in df_names) {
@@ -556,7 +569,7 @@ cat("Renaming variables complete.\n", sep = "")
 
 Duplicate rows were removed from all data frames using the anyDuplicated and distinct functions
 
-```{r clean-remove-duplicates}
+```{r process-remove-duplicates}
 # Remove all duplicate data in data set
 # This function was tested using a prototype version that generated dataframes of all of the apparent duplicate rows: these were verified manually before the function was allowed to modify the actual dataframes. The logic was verified again by re-running it after the initial removal: all dataframes reported zero duplicates on the second run, confirming the success of the first pass.
 cat("Checking for duplicate values...\n",sep="")
@@ -596,7 +609,7 @@ Variables were renamed according to the following specification:
 | intensity       | num           | factor 0:3   | Disable numerical operations (value is a ranking, not an amount) |
 
 
-```{r clean-update-nonfactor-variable-types}
+```{r process-update-nonfactor-variable-types}
 # Update non-factor variables
 
 # Declare required functions and global variables ----
@@ -705,7 +718,7 @@ rm(df_name, df_types_target, df_types_after, test_succeeded)
 
 ```
 
-```{r clean-update-factor-variable-types}
+```{r process-update-factor-variable-types}
 # Recast unique factor variables individually
 sleep_src_mins_tall <- sleep_src_mins_tall %>%
     mutate(sleep_rank = factor(sleep_rank, levels = 1:3, labels = c("Asleep", "Restless", "Awake")))
@@ -723,7 +736,7 @@ Building the test code added a decent amount of work to the project, but now I h
 
 Non-whitespace leading and trailing characters were removed from all variable names and all character-type data fields.
 
-```{r clean-trim-whitespace-variables}
+```{r process-trim-whitespace-variables}
 # Trim variable names
 cat("Trimming whitespace in variable names...\n", sep="")
 for (df_name in df_names) {
@@ -740,7 +753,7 @@ cat("Trimming whitespace in variable names complete.\n", sep="")
 
 ```
 
-```{r clean-trim-whitespace-data}
+```{r process-trim-whitespace-data}
 # Trim data
 trim_chr_column <- function(col) {
   if (is.character(col)) {
@@ -783,7 +796,7 @@ All ID values in the data set were checked against their correct length accordin
 | sleep_log_id      | 11                |
 | bodycomp_log_id   | 13                |
 
-```{r clean-validate-ID-lengths}
+```{r process-validate-ID-lengths}
 # Validate ID lengths
 validate_string_length <- function(df_name, col_name, valid_length) {
   cat("Checking ",df_name," for invalid ",col_name," values... ",sep="")
@@ -812,7 +825,7 @@ The validation confirmed all values were the correct length.
 
 To further validate the large number of ID data points in the data set, I checked the minimum and maximum ID values in each data frame. The intent was to identify any possible erroneous values within the acceptable length limits, e.g. all zeroes or all nines.
 
-```{r clean-validate-ID-ranges}
+```{r process-validate-ID-ranges}
 # Validate ID ranges
 cat("Checking min/max ID value ranges...\n",sep="")
 id_col_names <- c("id", "sleep_log_id", "bodycomp_log_id")
@@ -835,7 +848,7 @@ The validation confirmed all ID values were within a realistic range.
 
 The data set was described as containing data from users collected between "03.12.2016-05.12.2016": all records in the data set were validated against this date range. An intial check found dates just outside the range, dating up to 8am on 05.13.2016, the day after the data set supposedly ended. I didn't consider this to be a problem, so the valid end-date was updated to the 14th of May 2016 accordingly.
 
-```{r clean-validate-all-dates}
+```{r process-validate-all-dates}
 # Validate date data
 validate_dates <- function(df_name) {
   valid_dates_stt <- as.Date("2016-03-12", format = "%Y-%m-%d")
@@ -886,7 +899,7 @@ The validation confirmed all date values were within the target range.
   
 The validation code was split into generic checks that could be run on all numeric values, followed by code to analyse specific variables.
 
-```{r clean-validate-all-numeric}
+```{r process-validate-all-numeric}
 # Validate all numeric data
 validate_numerics <- function(df_name) {
   # This function performs all checks on numeric values that are required in more than one data-frame, e.g. non-negativity and summation
@@ -915,7 +928,7 @@ rm(result)
 
 ```
 
-```{r clean-validate-specific-numeric}
+```{r process-validate-specific-numeric}
 # Perform additional validation on specific numeric data
 
 # Note: The maximum values given are used as thresholds above which values may not be realistic, not as hard limits for acceptability: a heart-rate of 200bpm, for example, is entirely possible, but it is high enough that I would want to check if the data point corresponded to a period of high-intensity exercise.
@@ -1143,7 +1156,7 @@ plot_time_coefficients <- function(coeffs) {
   coeffs_median <- round(median(coeffs$correlation, na.rm = TRUE), digits = 2)
   sum_stats <- data.frame(Statistics = c("Mean", "Median"),
                           value = c(coeffs_mean, coeffs_median))
-  label_text <- paste("Mean =", coeffs_mean, "\nMedian =", coeffs_median)
+  label_text <- paste("Mean =", coeffs_mean, ", Median =", coeffs_median)
   
   ggplot(coeffs, aes(x = correlation)) +
     geom_histogram(binwidth = bin_width, color = "white") +
@@ -1154,10 +1167,9 @@ plot_time_coefficients <- function(coeffs) {
                size = 1) +
     scale_x_continuous(breaks = seq(-1.0, 1.0, by=bin_width)) +
     scale_y_continuous(breaks = seq(0, max_count, by=1)) +
-    annotate("text", x = Inf, y = Inf, label = label_text,
-           hjust = 1, vjust = 1, size = 4) +
+    # annotate("text", x = Inf, y = Inf, label = label_text, hjust = 1.5, vjust = 1.5, size = 4) +
     labs(title = "Correlation Coefficient with Time",
-         caption = "Positive values imply variable of interest generally increased over time.",
+         caption = label_text,
          x = "Correlation Coefficient",
          y = "Count")
 }
@@ -1207,15 +1219,15 @@ scatter_with_LOBF <- function(data_x, data_y, labels = NULL) {
                 color = "blue") +
     stat_cor(mapping=aes(label=..rr.label..),
              method="pearson",
-             label.x=-Inf,
+             label.x=Inf,
              label.y=Inf,
-             hjust = -0.1,
-             vjust = 1.1) +
-    geom_text(aes(label = sprintf("Gradient: %.2f", coef(lm(y ~ x, data = data))[2])),
-              x = -Inf,
-              y= Inf,
-              hjust = -0.05,
-              vjust = 3.5)
+             hjust = 1.5,
+             vjust = 1.5)
+    # geom_text(aes(label = sprintf("Gradient: %.2f", coef(lm(y ~ x, data = data))[2])),
+    #           x = -Inf,
+    #           y= Inf,
+    #           hjust = -0.05,
+    #           vjust = 3.5)
   
   if(!is.null(labels) && length(labels > 1)) {
     p <- p + labs(title = paste(labels[1], "vs.", labels[2]),
@@ -1266,6 +1278,7 @@ mean_daily_intensities_long$id <- factor(
 
 ```{r analyse-plot-mean-daily-intensities-by-id}
 viz_avg_time_by_intensity <- ggplot(mean_daily_intensities_long, aes(x= id, y= mean_hours, fill= intensity)) +
+  gglayer_theme +
   geom_bar(stat = "identity") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_y_continuous(breaks = seq(0, 24, by = 1)) +
@@ -1275,29 +1288,15 @@ viz_avg_time_by_intensity <- ggplot(mean_daily_intensities_long, aes(x= id, y= m
 print(viz_avg_time_by_intensity)
 ```
 
-#### Preliminary Findings
-
-* The large majority of people's time was spent in a sedentary state.
-* This made sense, since it included sleep tracking as well as time spent awake but immobile
-* There was a wide spread of times spent non-sedentary, with no clear outliers
-* The large majority of non-sedentary time was Lightly Active
-
 Given how large the majority of non-Sedentary time is "Lightly Active", and based on my understanding of the Intensity zones from previous sections, I assumed "Lightly Active" time included any activity more intense than sitting down, up to an including activities like walking for leisure. Anything more intense therefore fell into the "Fairly Active" or "Very Active" categories. With this in mind, I proceeded with the following definition:
 
 > "Active Time" is time logged in either the "Fairly Active" or "Very Active" intensity category, and is assumed to be time spent intentionally exercising.
 
 Using this definition, I analysed users' time spent intentionally exercising, i.e. their Active Time:
 
-```{r analyse-active-hours-freq}
-# Update total_active to reflect new definition
-# mean_daily_intensities_wide <- mean_daily_intensities_wide %>%
-#   mutate(total_active = fairly_active + very_active) %>%
-#   arrange(total_active)
-
-```
-
 ```{r analyse-plot-active-hours-freq}
 viz_active_hrs_per_week <- plot_histo_pareto(mean_daily_intensities_wide$total_active, bin_width = 0.25) +
+  gglayer_theme +
   labs(title = "Active Hours per Week",
        x = "Hours")
 print(viz_active_hrs_per_week)
@@ -1306,6 +1305,10 @@ print(viz_active_hrs_per_week)
 
 #### Preliminary Findings
 
+* The large majority of people's time was spent in a sedentary state.
+* This made sense, since it included sleep tracking as well as time spent awake but immobile
+* There was a wide spread of times spent non-sedentary, with no clear outliers
+* The large majority of non-sedentary time was Lightly Active
 * 72.7% of the cohort (24 users) got less than 45 minutes of Active Time per week on average.
 * 18% of the cohort (6 users) did more than 1 hour a week on average.
 
@@ -1326,6 +1329,7 @@ mean_daily_intensities_wide <- mean_daily_intensities_wide %>%
 # Visualise proportion Very Active time
 viz_very_active_proportion <- plot_histo_pareto(mean_daily_intensities_wide$proportion_very_active,
                                                 bin_width = 0.1) +
+  gglayer_theme +
   labs(title = "Percentage of Active Time spent Very Active",
        x = "% Very Active")
 print(viz_very_active_proportion)
@@ -1351,15 +1355,16 @@ mean_daily_intensities_wide_no_upper_quint <- mean_daily_intensities_wide %>%
 
 ```{r analyse-plot-logged-minutes-vs-intensity}
 viz_very_active_vs_total_active <- ggplot(mean_daily_intensities_wide, aes(x=total_active, y=proportion_very_active)) +
+  gglayer_theme +
   geom_point() +
   geom_smooth(method = "lm",
               se = FALSE,
               color = "blue") +
   stat_cor(aes(label=..rr.label..),
            label.x=Inf,
-           hjust = 1,
+           hjust = 1.5,
            label.y= Inf,
-           vjust = 1) +
+           vjust = 1.5) +
   scale_x_continuous(limits=c(0,2)) + 
   scale_y_continuous(limits=c(0,1)) +
   labs(title="Proportion Very Active vs. Total Active Time",
@@ -1379,15 +1384,16 @@ viz_very_active_vs_total_active_no_upper_quint <- ggplot(
     head(four_quintiles_length),
   aes(x=total_active, y=proportion_very_active)
   ) +
+  gglayer_theme +
   geom_point() +
   geom_smooth(method = "lm",
               se = FALSE,
               color = "blue") +
   stat_cor(aes(label=..rr.label..),
            label.x=Inf,
-           hjust = 1,
+           hjust = 1.5,
            label.y= Inf,
-           vjust = 1) +
+           vjust = 1.5) +
   scale_x_continuous(limits=c(0,2)) + 
   scale_y_continuous(limits=c(0,1)) +
   labs(title="Proportion Very Active vs. Total Active Time",
@@ -1446,7 +1452,7 @@ intensity_time_coeffs <- rbind(
 
 ```{r analyse-plot-active-hours-over-time}
 viz_all_intensity_over_time <- ggplot(intensity_time_coeffs) +
-  theme_minimal() +
+  gglayer_theme +
   geom_freqpoly(aes(x = correlation,
                      color = intensity),
                  binwidth = 0.1,
@@ -1483,6 +1489,7 @@ viz_lightly_active_time_coeffs <- get_time_coefficients_plot(
   daily_intensity_proportions$activity_day,
   daily_intensity_proportions$proportion_very_active
 ) +
+  gglayer_theme +
   geom_vline(xintercept = 0) +
   geom_hline(yintercept = 0) +
   labs(title = "Correlation Coefficients for Very Active Proportion Time",
@@ -1552,6 +1559,8 @@ mean_movement_times_long$id <- factor(
 ```{r analyse-plot-movement-averages}
 ggplot(mean_movement_times_long,
        aes(x = id, y = mean_hours, fill = speed)) +
+  gglayer_theme +
+  theme_linedraw() +
   geom_bar(stat = "identity") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_y_continuous(breaks = seq(0,33,by=1)) +
@@ -1565,7 +1574,7 @@ As an alternative visualisation, I also plotted a histogram comparing just the n
 
 ```{r analyse-plot-movement-frequencies}
 viz_walking_speed_frequency <- ggplot(mean_movement_times_long %>% filter(speed != "not_walking")) +
-  theme_pubclean() +
+  gglayer_theme +
   geom_histogram(aes(x = mean_hours,
                      fill = speed),
                  binwidth = 0.25,
@@ -1595,6 +1604,7 @@ mean_movement_times <- mean_movement_times %>%
 ```{r analyse-plot-active-walking-freq}
 # Plot histogram "Active Walking" times for each user
 viz_active_walking <- plot_histo_pareto(mean_movement_times$total_active_walking, bin_width = 0.25) +
+  gglayer_theme +
   labs(title = "Average Daily Active-Walking Hours",
        x = "Average Daily Hours")
 print(viz_active_walking)
@@ -1612,11 +1622,11 @@ mean_movement_times <- mean_movement_times %>%
 
 viz_running_proportion <- plot_histo_pareto(mean_movement_times$proportion_running,
                                                 bin_width = 0.1) +
+  gglayer_theme +
   labs(title = "Percentage of Active Walking Time Spent Running",
        x = "% Running")
 print(viz_running_proportion)
 ```
-
 
 #### Preliminary Findings
 
@@ -1630,7 +1640,8 @@ print(viz_running_proportion)
 
 To analyse changes in user movement habits over time, I repeated the analysis of time correlation coefficients I performed on the activity intensity data, but for the walking speed categories I had defined:
 
-```{r viz-all-walking-over-time}
+```{r analyse-all-walking-over-time}
+# Get correlation coefficents with time for all walking intensities
 mod_walking_time_coeffs <- get_time_coefficients(
   mean_movement_times_daily$id,
   mean_movement_times_daily$activity_day,
@@ -1658,8 +1669,12 @@ walking_time_coeffs <- rbind(
   running_time_coeffs
 )
 
+```
+
+```{r analyse-plot-all-walking-over-time}
+# Plot correlation coefficents with time for all walking intensities
 viz_all_walking_over_time <- ggplot(walking_time_coeffs) +
-  theme_minimal() +
+  gglayer_theme +
   geom_freqpoly(aes(x = correlation,
                      color = speed),
                  binwidth = 0.1,
@@ -1691,8 +1706,9 @@ mean_daily_steps <- steps_sum_days_tall %>%
   summarize(mean_steps = mean(steps_total))
 ```
 
-```{r viz-mean-daily-step-counts}
+```{r analyse-plot-mean-daily-step-counts}
 viz_mean_daily_steps <- plot_histo_pareto(mean_daily_steps$mean_steps, 2000) +
+  gglayer_theme +
   labs(title = "Average Daily Steps by User",
        x = "Average Daily Steps")
 print(viz_mean_daily_steps)
@@ -1706,11 +1722,11 @@ print(viz_mean_daily_steps)
 
 ### Do people increase their step counts over time?
 
-```{r viz-mean-daily-steps-vs-time}
+```{r analyse-plot-mean-daily-steps-vs-time}
 viz_mean_daily_steps_vs_time <- get_time_coefficients_plot(steps_sum_days_tall$id,
                                                 steps_sum_days_tall$activity_day,
                                                 steps_sum_days_tall$steps_total) +
-  theme_pubclean() +
+  gglayer_theme +
   labs(title = "Correlation between Step Counts and Time",
        y = "Users")
 print(viz_mean_daily_steps_vs_time)
@@ -1742,11 +1758,12 @@ distance_vs_active <- activity_sum_days_wide %>%
             mean_minutes_active = mean(minutes_active))
 ```
 
-```{r viz-distance-vs-intensity}
+```{r analyse-plot-distance-vs-intensity}
 viz_distance_vs_activity <- scatter_with_LOBF(distance_vs_active$mean_minutes_active,
                        distance_vs_active$mean_distance_active,
                        c("Mean Daily Active Minutes", "Mean Daily Active Distance")) +
-  labs(caption = "\"Active\" refers to time spent either Fairly or Very Active") +
+  gglayer_theme +
+  # labs(caption = "\"Active\" refers to time spent either Fairly or Very Active") +
   scale_y_continuous(breaks = seq(0,10,by=1))
 print(viz_distance_vs_activity)
 ```
@@ -1797,10 +1814,6 @@ nights_logged_by_sleep_log <- sleep_sum_days_wide %>%
             pct_logged_asleep = count_logged_asleep / total_nights,
             pct_logged_in_bed = count_logged_in_bed / total_nights)
 
-plot_histo_pareto(nights_logged_by_sleep_log$pct_logged_in_bed, bin_width = 0.05) +
-  labs(title = "Percentage of Nights Logged In Bed - Logged Users Only",
-       subtitle = "Source: Sleep Log Data")
-
 # Add missing ID values to the dataset to analyse the full cohort
 missing_ids <- setdiff(unique(activity_sum_days_wide$id), nights_logged_by_sleep_log$id)
 for (id in missing_ids) {
@@ -1818,6 +1831,7 @@ for (id in missing_ids) {
 ```{r analyse-plot-night-usage-sleep-logs}
 # Visualise overnight usage using sleep log data
 viz_night_usage_sleep_logs <- plot_histo_pareto(nights_logged_by_sleep_log$pct_logged_in_bed, bin_width = 0.05) +
+  gglayer_theme +
   labs(title = "Percentage of Nights Logged In Bed - All Users",
        subtitle = "Source: Sleep Log Data")
 print(viz_night_usage_sleep_logs)
@@ -1842,6 +1856,7 @@ heartrate_polling_variance <- heartrate_src_seconds_tall %>%
 ```{r analyse-plot-heartrate-polling-variance}
 # Visualise heart rate polling variance
 ggplot(heartrate_polling_variance) +
+  gglayer_theme +
   geom_boxplot(aes(y = polling_diff)) +
   scale_y_continuous(breaks = seq(0,60,by=5)) +
   labs(title="Variation in Heart Rate Polling",
@@ -1892,10 +1907,11 @@ nights_logged_by_heart_rate <- heartrate_src_seconds_tall %>%
 
 ```{r analyse-plot-night-usage-heartrate}
 # Plot histogram showing who logged what fraction of their nights
-viz_night_usage_heartrate <- plot_histo_pareto(nights_logged_by_heart_rate$nights_logged_pct, bin_width = 0.05) +
+viz_nighttime_heartrate_usage <- plot_histo_pareto(nights_logged_by_heart_rate$nights_logged_pct, bin_width = 0.05) +
+  gglayer_theme +
   labs(title = "Percentage of Nights Logged In Bed - HR Users Only",
        subtitle = "Source: Heart Rate Data")
-print(viz_night_usage_heartrate)
+print(viz_nighttime_heartrate_usage)
 
 ```
 
@@ -1910,8 +1926,8 @@ sleep_data_merged <- merge(nights_logged_by_sleep_log, nights_logged_by_heart_ra
 sleep_data_merged <- tidyr::gather(sleep_data_merged, key = "Variable", value = "Value", -id)
 
 viz_sleep_logs_vs_hr_logs <- ggplot(sleep_data_merged, aes(x = id, y = Value, fill = Variable)) +
+  gglayer_theme +
   geom_bar(stat = "identity", position = "dodge", width = 0.7, color = "black") +
-  theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_y_continuous(breaks = seq(0, 1, by = 0.1)) +
   labs(title = "Nights Logged: Sleep Logs vs. Heartrate Logs",
@@ -1937,7 +1953,9 @@ For those IDs present in both data sets, the results were almost identical, with
 
 ## Sleep Tracking
 
-TODO: Feature overview when it's the start of the day, not the end
+The sleep tracking feature is core to much of the functionality of the Ivy. The [existing marketing material](https://bellabeat.com/ivy/features/) claims that "Ivy monitors your sleep patterns and knows exactly how your night is going to affect the next day." The sleep logging is also factored into other functions like the Readiness Score.
+
+In order to better analyse how users were currently making use of this function, I combined my previous analysis on overnight wear with additional analysis on existing user sleep patterns.
 
 ### How many people used the sleep tracking feature?
 
@@ -1972,10 +1990,12 @@ sleep_sum_quant_qual_mean <- sleep_sum_quant_qual %>%
 ```
 
 ```{r analyse-plot-sleep-quantity}
-# Visualise sleep quantity
-plot_histo_pareto(sleep_sum_quant_qual_mean$hours_total_mean, bin_width = 1) +
+# Visualise hours spent asleep
+viz_average_hours_asleep <- plot_histo_pareto(sleep_sum_quant_qual_mean$hours_total_mean, bin_width = 1) +
+  gglayer_theme +
   labs(title = "Average Hours Asleep",
        x = "Hours Asleep")
+print(viz_average_hours_asleep)
 
 ```
 
@@ -1988,11 +2008,13 @@ plot_histo_pareto(sleep_sum_quant_qual_mean$hours_total_mean, bin_width = 1) +
 To analyse the quantity of sleep in the cohort, I calculated the time spent Asleep as a percentage of total Sleep Time logged for each user:
 
 ```{r analyse-plot-sleep-quality}
-# Visualise sleep quality
-
-plot_histo_pareto(sleep_sum_quant_qual_mean$pct_asleep_mean, bin_width = 0.05) +
+# Visualise hours in bed spent asleep
+viz_average_pct_asleep <- plot_histo_pareto(sleep_sum_quant_qual_mean$pct_asleep_mean, bin_width = 0.05) +
+  gglayer_theme +
   labs(title = "Percentage of Sleep Logs Spent Asleep",
        x= "% of Time")
+print(viz_average_pct_asleep)
+
 ```
 
 #### Preliminary Findings
@@ -2002,45 +2024,27 @@ plot_histo_pareto(sleep_sum_quant_qual_mean$pct_asleep_mean, bin_width = 0.05) +
 
 ### Did sleep quantity or quality improve over time?
 
-I applied my previous analysis of time correlations to my measures for sleep quality and quantity:
-
-```{r analyse-plot-sleep-over-time-bruteforce, eval=FALSE}
-# Brute-force visualisation of overall sleep quality over time
-ggplot(sleep_sum_quant_qual,
-       aes(x = sleep_date,
-           y = pct_asleep)) +
-  geom_point() +
-  geom_smooth(method = "lm",
-                se = FALSE,
-                color = "blue") +
-    stat_cor(mapping=aes(label=..rr.label..),
-             method="pearson",
-             label.x=-Inf,
-             label.y=Inf,
-             hjust = -0.1,
-             vjust = 1.1) +
-  facet_wrap(vars(id))
-# Brute-force #### Preliminary Findings Most lines are flat, with some (5-6) that are slightly down
-
-```
-
 I analysed sleep quantity and quality over time by calculating the coefficients with time of "total hours asleep" and "percentage of time asleep", respectively:
 
 ```{r analyse-plot-sleep-quantity-over-time}
 # Visualise changes in sleep quantity over time
-get_time_coefficients_plot(sleep_sum_quant_qual$id,
+viz_sleep_quantity_vs_time <- get_time_coefficients_plot(sleep_sum_quant_qual$id,
                          sleep_sum_quant_qual$sleep_date,
                          sleep_sum_quant_qual$minutes_asleep) +
+  gglayer_theme +
   labs(title = "Correlation Coefficents for Average Total Time Asleep vs. Time")
+print(viz_sleep_quantity_vs_time)
 
 ```
 
 ```{r analyse-plot-sleep-quality-over-time}
 # Visualise changes in sleep quality over time
-get_time_coefficients_plot(sleep_sum_quant_qual$id,
+viz_sleep_quality_vs_time <- get_time_coefficients_plot(sleep_sum_quant_qual$id,
                            sleep_sum_quant_qual$sleep_date,
                            sleep_sum_quant_qual$pct_asleep) +
+  gglayer_theme +
   labs(title = "Correlation Coefficents for Average Proportion of Time Asleep vs. Time")
+print(viz_sleep_quality_vs_time)
 
 ```
 
@@ -2114,9 +2118,11 @@ periods_logged <- periods_logged %>%
 
 ```{r analyse-plot-daytime-heartrate-usage}
 # Plot histogram showing who logged what fraction of their nights
-plot_histo_pareto(periods_logged$periods_pct, bin_width = 0.05) +
-  labs(title = "Percentage of Periods Logged",
+viz_daytime_heartrate_usage <- plot_histo_pareto(periods_logged$periods_pct, bin_width = 0.05) +
+  gglayer_theme +
+  labs(title = "Percentage of Daytime Periods Logged",
        subtitle = "Source: Heart Rate Data")
+print(viz_daytime_heartrate_usage)
 
 ```
 
@@ -2128,7 +2134,7 @@ plot_histo_pareto(periods_logged$periods_pct, bin_width = 0.05) +
 
 ### What levels of activity do people typically track?
 
-First the naive approach: What percentage of various users' time is spent in what heart-rate zone?
+For this feature I analysed what percentage of various users' time was spent in each heart-rate zone:
 
 ```{r analyse-intensity-levels}
 # Analyse intensity levels
@@ -2168,13 +2174,15 @@ hr_zone_data_long <- hr_zone_data %>%
 
 ```{r analyse-plot-intensity-levels}
 # Visualise intensity levels analysis
-ggplot(hr_zone_data_long, aes(x= id, y= count, fill= hr_zone)) +
+viz_heartrate_intensities <- ggplot(hr_zone_data_long, aes(x= id, y= count, fill= hr_zone)) +
+  gglayer_theme +
   geom_bar(stat = "identity",
            position = "fill") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(title="Count of HR Logs by HR Zone",
+  labs(title="Proportion of Heart Rate Logs by Intensity Zone",
        x = "User ID",
-       y = "Count")
+       y = "% of Total")
+print(viz_heartrate_intensities)
 
 ```
 
@@ -2185,27 +2193,10 @@ ggplot(hr_zone_data_long, aes(x= id, y= count, fill= hr_zone)) +
 * There appeared to be ample data for Ivy devices to determine a user's resting heart rate from the daytime data, even if there was little nighttime data
 * This reliance on daytime data might skew the values up, since users are more likely to be at least somewhat active during the day than while asleep
 
-## Features without Data
 
-Several functions and features of the Ivy are not present on the FitBits in the data set. Given the lack of data, it's not possible to directly analyse existing user behaviours with respect to these features, which include:
+# Step 5: Share
 
-* Respiratory Rate
-* Hydration tracking
-* Mindfulness Minute Tracking
-* Menstrual Cycle
-* Wellness Score
-
-# REVIEW: Step 5: Share
-
-In which I present all of my key findings and their supporting visualisations
-
-TODO:
-
-* Replace raw ID strings with letters for brevity
-* Center images in text
-* Pick a consistent theme
-* Add green Cumulative Percentage of Users line to legend in plot_histo_pareto()
-* Standardise Mean/Median captions
+Based on my analysis in the previous step, I present the following findings from the data set:
 
 > Most users don't get much exercise
 
@@ -2223,7 +2214,7 @@ print(viz_active_hrs_per_week)
     
 > For those who do exercise, there was no clear preference for low- or high-intensity activities
 
-By visualising Very Active Time as a percentage of Active Time (the sum of Very Active and Fairly Active time), I found a fairly symmetrical, bimodal distribution, with approximately equal numbers of users favouring low- and high-intensity activity:
+Visualising users' Very Active Time as a percentage of their Active Time produces an approximately symmetrical, bimodal distribution, showing no clear preference for low- or high-intensity activity in the cohort:
 
 ```{r share-plot-very-active-proportion, echo=FALSE}
 print(viz_very_active_proportion)
@@ -2234,12 +2225,6 @@ More time spent active is only loosely related to more time spent at high intens
 ```{r share-plot-very-active-vs-total-active, echo=FALSE}
 print(viz_very_active_vs_total_active)
 ```
-
-> Users get around 7500 steps in per day on average
-
-```{r share-plot-mean-daily-steps, echo=FALSE}
-print(viz_mean_daily_steps)
-```
     
 > Walking is much more popular than running:
 
@@ -2247,29 +2232,15 @@ print(viz_mean_daily_steps)
 print(viz_walking_speed_frequency)
 ```
 
-> Exercise intensity did not increase over time
+> Users get 7500 steps in per day on average
 
-```{r share-plot-all-intensity-over-time, echo=FALSE}
-print(viz_all_intensity_over_time)
-```
-
-> Users do not increase their step count, walking time, or walking intensity over time
-
-Average daily steps decreased slightly over time for most users:
-
-```{r share-plot-mean-daily-steps-vs-time, echo=FALSE}
-print(viz_mean_daily_steps_vs_time)
-```
-
-Average time spent walking daily also decreased slightly over time for most users, at all speeds:
-
-```{r share-plot-all-walking-over-time, echo=FALSE}
-print(viz_all_walking_over_time)
+```{r share-plot-mean-daily-steps, echo=FALSE}
+print(viz_mean_daily_steps)
 ```
 
 > Users prefer to engage in mobile exercise
 
-The data shows a strong correlation between time spent exercising and distance covered, which indicates users prefer mobile exercise; if the opposite was true and users spent their active time stationary, we would have seen more users with higher active minutes but low distance.
+I found a strong correlation between time spent exercising and distance covered, which indicates users prefer mobile exercise; if the opposite was true and users spent their active time stationary, we would have seen more users with higher active minutes but low distance.
 
 ```{r share-plot-distance-vs-activity, echo=FALSE}
 print(viz_distance_vs_activity)
@@ -2283,37 +2254,74 @@ The majority of users log sleep on no or a minority of nights, with a long tail 
 print(viz_night_usage_sleep_logs)
 ```
 
-Analysis of those users who logged heart-rate data shows a similar trend for overnight heart-rate logging:
-
-```{r share-plot-night-usage-heartrate, echo=FALSE}
-print(viz_night_usage_heartrate)
-```
-
-Sleep logs and heart-rate logs are comparable for users with data for both:
+Supplementary analysis of those users who logged heart-rate data shows a similar trend for overnight heart-rate logging:
 
 ```{r share-plot-sleep-logs-vs-hr-logs, echo=FALSE}
 print(viz_sleep_logs_vs_hr_logs)
 ```
 
-> Device comfort may be a factor
+> Most users logged heart rate data during the day, but not during the night
 
-* One possible reason for this is indicated by the manual for the FitBit Surge, which informs the user that ["wearing your tracker 24/7 does not allow your skin to breathe"](https://myhelp.fitbit.com/resource/manual_surge_en_US)
+```{r share-plot-heartrate-usage, echo=FALSE}
+print(viz_daytime_heartrate_usage)
+print(viz_nighttime_heartrate_usage)
+```
 
+> The majority of heart rate data was not logged during high-intensity activity
 
+```{r share-plot-heartrate-intensities, echo=FALSE}
+print(viz_heartrate_intensities)
+```
 
-> Some features cannot be analysed due to a lack of available data
+> Users get an appropriate amount of good-quality sleep
 
-Several functions and features of the Ivy are not present on the FitBits in the data set. Given the lack of data, it's not possible to directly analyse existing user behaviours with respect to these features, which include:
+Users typically log around 7 hours sleep per night:
 
-* Respiratory Rate
-* Hydration tracking
-* Mindfulness Minute Tracking
-* Menstrual Cycle
-* Wellness Score
+```{r share-plot-sleep-quantity, echo=FALSE}
+print(viz_average_hours_asleep)
+```
+
+Almost all time logged is spent Asleep, the highest-quality sleep rank logged by the FitBits:
+
+```{r share-plot-sleep-quality, echo=FALSE}
+print(viz_average_pct_asleep)
+```
+
+> Users did not improve on any of the metrics analysed
+
+The users in the cohort showed no evidence of increasing the following average metrics over time:
+
+* Exercise time per day
+* Exercise intensity
+* Step count per day
+* Walking time per day
+* Walking speed
+* Hours Asleep per night
+* Quality of sleep
+
+For all of these metrics, average values typically remained the same or decreased slightly
+
+```{r share-plot-all-intensity-over-time, echo=FALSE}
+print(viz_all_intensity_over_time)
+```
+
+```{r share-plot-mean-daily-steps-vs-time, echo=FALSE}
+print(viz_mean_daily_steps_vs_time)
+```
+
+```{r share-plot-all-walking-over-time, echo=FALSE}
+print(viz_all_walking_over_time)
+```
+
+```{r share-plot-sleep-quantity-over-time, echo=FALSE}
+print(viz_sleep_quantity_vs_time)
+```
+
+```{r share-plot-sleep-quality-over-time, echo=FALSE}
+print(viz_sleep_quantity_vs_time)
+```
 
 # Step 6: Act
-
-TODO: Embed images
 
 Based on the findings in the previous section, I present the following recommendations for the marketing strategy for the Bellabeat Ivy
 
@@ -2321,9 +2329,11 @@ Based on the findings in the previous section, I present the following recommend
 
 The analysis indicated that the majority of users do not wear their devices overnight. This is a potential problem for marketing, as a number of key features of the device, including the Readiness Score, Resting Heart Rate tracking, Cardiac Coherence, and Sleep Tracking will function in a reduced capacity, or not at all, if the device cannot gather data from the user overnight. In the Help documentation for the Ivy it is explicitly stated that, for the Readiness Score feature, ["To fully calibrate your baseline and get more reliable readiness score results you must wear your Ivy for 30 nights."](https://support.bellabeat.com/hc/en-us/articles/360020620059-Readiness-Score) Marketing materials should therefore highlight these features as beneficial to the user _as a result_ of overnight wear to encourage this practice. This will in turn allow these functions to be positioned as value-add features that do more with the data that is gathered overnight than competing products.
 
-One obvious reason why users may not be wearing their devices overnight is comfort. One of the FitBit manuals referenced in my research makes explicit mention of this, informing the user that ["wearing your tracker 24/7 does not allow your skin to breathe"](https://myhelp.fitbit.com/resource/manual_surge_en_US). The design of the Ivy may not be helping matters here: it has a more angular, protruding body than typical "watch"-type wearables, which may negatively impact overnight comfort.
+One obvious reason why users may not be wearing their devices overnight is comfort. One of the FitBit manuals referenced in my research makes explicit mention of this, informing the user that ["wearing your tracker 24/7 does not allow your skin to breathe"](https://myhelp.fitbit.com/resource/manual_surge_en_US). The design of the Ivy may not be helping matters here: it has a more angular, protruding body than typical "watch"-type wearables, which may negatively impact overnight comfort:
 
-!(Bellabeat Ivy on woman's wrist)[https://bellabeat.com/wp-content/uploads/2022/05/RHR-1.jpg]
+<div style="text-align: center;">
+  ![Bellabeat Ivy on a woman's wrist](imgs/bellabeat_ivy_on_wrist_cropped.png)
+</div>
 
 To mitigate these potential consumer concerns, the marketing should highlight the hypo-allergenic and hygenic aspects of the materials used in the Ivy, positioning these as keeping users comfortable during overnight wear.
 
@@ -2469,7 +2479,6 @@ glimpse(sleepDay_comp)
 
 The two +500-minute values were investigated and found to be the result of double-sampling in the data. That day had two duplicate logs, which in the original sum data was presented as two duplicate rows with the accurate 500-minute value, and in my data was presented as two rows with the full 1000 minutes of data summed. All other rows were identical to or within 22 minutes of the original, which I considered accurate enough to validate the mapping.
 
-
 ## Appendix B: "Prepare" Stage Code
 
 ```{r prep-apdx-labels}
@@ -2487,13 +2496,13 @@ prep_apdx_labs <- grep("^prep-", knitr::all_labels(), value = TRUE)
 invisible(lapply(prep_apdx_labs, print_chunk_with_label))
 ```
 
-## Appendix C: "Clean" Stage Code
+## Appendix C: "Process" Stage Code
 
-```{r clean-apdx-labels, include=TRUE}
-clean_apdx_labs <- grep("^clean-", knitr::all_labels(), value = TRUE)
+```{r process-apdx-labels, include=TRUE}
+process_apdx_labs <- grep("^process-", knitr::all_labels(), value = TRUE)
 ```
 
-```{r clean-apdx-code, ref.label=clean_apdx_labs, echo = TRUE, include = TRUE, eval=FALSE}
+```{r process-apdx-code, ref.label=process_apdx_labs, echo = TRUE, include = TRUE, eval=FALSE}
 ```
 
 ## Appendix D: "Analyse" Stage Code
