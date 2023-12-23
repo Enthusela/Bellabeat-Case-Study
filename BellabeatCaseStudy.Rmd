@@ -1,77 +1,13 @@
 ---
 title: "Bellabeat Case Study Report"
 author: "Nathan Weaver"
-date: "2023-12-23"
-output: html_document
+date: "23rd December, 2023"
+output: 
+  html_document:
+    theme: readable
+    toc: true
+    toc_float: true
 ---
-
-# Introduction
-
-TODO
-
-# Step 1: Ask
-## Business Task
-
-This analysis was initiated by Urška Sršen, co-founder of Bellabeat. Sršen knows that an analysis of available data on consumers' smart device usage would reveal opportunities for the company to grow, and has provided the following business task:
-
-> Analyse smart device usage data to gain insight into how people are already using smart devices, then generate high-level recommendations for how these insights can inform the marketing strategy for one Bellabeat product.
-
-For this analysis, I chose to produce recommendations for the Bellabeat Ivy. At time of writing this was Bellabeat's most fully-featured product, and the one that most closely aligned with the kind of functionality expected from existing wearable smart devices, so I considered it the product that my available data would be the most directly applicable to.
-
-## Key Stakeholders
-
-* Urška Sršen
-  + Co-founder of Bellabeat
-  + Initiator of this analysis
-* Bellabeat marketing team
-  + Intended audience for my presentation
-  + Will use my insights to guide marketing strategies
-
-# Step 2: Prepare
-## Selecting my tools
-
-For this analysis I wanted a tool or set of tools with the following features:
-
-* Sufficient power enough to handle large data sets, e.g. FitBit data tables with >1M observations
-* Functions for data manipulation, e.g. loading, cleaning and combining data sets
-* Functions for data analysis, e.g. regression analysis and statistical analysis
-* Functions for data visualisation, e.g. plotting
-* Methods for storing the details of my analysis methodology separate from the data itself, e.g. separate source code files, as opposed to macros stored within spreadsheet files
-* Methods for generating reports from my analysis with as little repetition of work as possible, e.g. inline markdown languages, or Page Layout views in spreadsheet applications
-* A straightforward learning process and user interface, e.g. spreadsheet tools typically have a single "Add Chart" tool under which all of their powerful charting options can be found; contrast this with learning to download, enable, and finally use the ggplot2 R library
-
-With these requirements in mind, I considered three tools: R, spreadsheets, and databases:
-
-|Feature|R|Spreadsheets|Databases|
-|:------------------------------|:---:|:---:|:---:|
-| Power for large data sets     | Yes | No  | Yes |
-| Data manipulation tools       | Yes | Yes | Yes |
-| Data analysis tools           | Yes | Yes | No  |
-| Data visualisation tools      | Yes | Yes | No  |
-| Separate analysis files       | Yes | No  | Yes |
-| Streamlined report generation | Yes | No  | No  |
-| Straightforward to learn      | No  | Yes | No  |
-
-Clearly, R is the best single tool for this analysis. R lacks the straightfoward operation of spreadsheet tools, and I will need to learn libraries and programming techniques as I do my analysis, but this is acceptable given my prior experience with other programming languages like Python. 
-
-Note: Python itself was not considered for this analysis: while it shares most of the features, advantages, and disadvantages of R, I'm already familiar with Python and wanted to use this case study to familiarise myself with R instead.
-
-## Setting up my RStudio environment
-
-I set up my RStudio environment using the following packages:
-
-* dplyr
-* anytime
-* tidyverse
-* janitor
-* readr
-* skimr
-* tibble
-* ggplot2
-* gridExtra
-* ggpubr
-* kableExtra
-* purrr
 
 ```{r setup, include=FALSE, results='hide'}
 # Set up knitting options with the knitr package
@@ -113,11 +49,84 @@ rm(rqd_pkgs)
 print("Loading packages complete.")
 ```
 
+# Introduction
+
+The following data analysis case study was completed as my capstone project for the Google Data Analytics Professional Certificate. It is organised to reflect the overall approach to data analysis advanced in that course, and so is split into six overarching steps: "Ask", "Prepare", "Process", "Analyse", "Share", and "Act". The process taken to establish the business question and find and process relevant data for analysis is detailed in the "Ask", "Prepare", and "Process" steps; the analysis and my preliminary findings are detailed in the "Analyse" step; and my final findings from the data and recommendations to the stakeholders are detailed in the "Share" and "Act" steps, respectively.
+
+# Step 1: Ask
+## Business Task
+
+This analysis was initiated by Urška Sršen, co-founder of Bellabeat. Sršen knows that an analysis of available data on consumers' smart device usage would reveal opportunities for the company to grow, and has provided the following business task:
+
+> Analyse smart device usage data to gain insight into how people are already using smart devices, then generate high-level recommendations for how these insights can inform the marketing strategy for one Bellabeat product.
+
+For this analysis, I chose to produce recommendations for the Bellabeat Ivy. At time of writing this was Bellabeat's most fully-featured product, and the one that most closely aligned with the kind of functionality expected from existing wearable smart devices, so I considered it the product that my available data would be the most directly applicable to.
+
+## Key Stakeholders
+
+* Urška Sršen
+  + Co-founder of Bellabeat
+  + Initiator of this analysis
+* Bellabeat marketing team
+  + Intended audience for my presentation
+  + Will use my insights to guide marketing strategies
+
+# Step 2: Prepare
+## Selecting my tools
+
+For this analysis I wanted a tool or set of tools with the following features:
+
+* Sufficient power: enough to handle large data sets, e.g. FitBit data tables with over two million observations
+* Functions for data manipulation, e.g. loading, processing and combining data sets
+* Functions for data analysis, e.g. regression analysis and statistical analysis
+* Functions for data visualisation, e.g. plotting
+* Methods for storing the details of my analysis methodology separate from the data itself, e.g. separate source code files, as opposed to macros stored within spreadsheet files
+* Methods for generating reports from my analysis with as little repetition of work as possible, e.g. inline markdown languages, or Page Layout views in spreadsheet applications
+* A straightforward learning process and user interface: spreadsheet tools, for example, typically have a single "Add Chart" tool under which all of their powerful charting options can be found; contrast this with learning to download, enable, and finally use the ggplot2 R library
+
+With these requirements in mind, I considered three tools: R, spreadsheets, and databases:
+
+|Feature|R|Spreadsheets|Databases|
+|:---|:-:|:-:|:-:|
+| Power for large data sets     | Yes | No  | Yes |
+| Data manipulation tools       | Yes | Yes | Yes |
+| Data analysis tools           | Yes | Yes | No  |
+| Data visualisation tools      | Yes | Yes | No  |
+| Separate analysis files       | Yes | No  | Yes |
+| Streamlined report generation | Yes | No  | No  |
+| Straightforward to learn      | No  | Yes | No  |
+
+Note: Another obvious candidate, Python, was not considered for this analysis: while it shares most of the features, advantages, and disadvantages of R, I'm already familiar with Python and wanted to use this case study to familiarise myself with R instead.
+
+Based on this assessment, I decided on R as the best single tool for this analysis. R lacks the straightforward operation of spreadsheet tools, and I will need to learn libraries and programming techniques as I do my analysis, but this is acceptable given my prior experience with other programming languages like Python. 
+
+## Setting up my RStudio environment
+
+I set up my RStudio environment using the following packages:
+
+* dplyr
+* anytime
+* tidyverse
+* janitor
+* readr
+* skimr
+* tibble
+* ggplot2
+* gridExtra
+* ggpubr
+* kableExtra
+* purrr
+
+The full R code used for this section is included in Appendix B.
+
+
+
 ```{r prep-set-dir}
 # Set the working directory of the R markdown environment to match that of the console
 dir <- "/Users/nathanweaver/Documents/GitHub/Bellabeat Case Study"
 setwd(dir)
 cat("Set working directory to:", dir, "\n")
+
 ```
 
 ```{r prep-set-themes}
@@ -127,9 +136,11 @@ fig_width <- "90%"
 fig_align <- "center"
 ```
 
+
+
 ## Getting the data
 
-For this data analysis, I'll be making use of one public data set specified by Sršen. The data set specified is the [FitBit Fitness Tracker Data Set](https://www.kaggle.com/datasets/arashnic/fitbit). This is a public data set available under the [CC0 License](https://creativecommons.org/share-your-work/public-domain/cc/) via [Kaggle user Mobius](https://www.kaggle.com/arashnic).
+For this data analysis, I'll be making use of the public data set specified by Sršen. The data set specified is the [FitBit Fitness Tracker Data Set](https://www.kaggle.com/datasets/arashnic/fitbit). This is a public data set available under the [CC0 License](https://creativecommons.org/share-your-work/public-domain/cc/) via [Kaggle user Mobius](https://www.kaggle.com/arashnic).
 
 For the initial analysis, the data set was downloaded in its entirety from Kaggle and stored locally on my computer. This provided a baseline for analysis, with any modifications to file names, folder re-structuring, or removal of unnecessary data tables to be conducted after I'm familiar with the raw data. The CSV files in the data set were loaded directly into the environment as data frames.
 
@@ -155,7 +166,7 @@ rm(i, paths_dfs)
 The database contains data on the following features of the FitBit devices:
 
 | Feature                 | Units                  | Sampling Rate            |
-|:------------------------|:-----------------------|:-------------------------|
+|:-|:-|:-|
 | BMI                     | BMI                    | Manual/automatic logging |
 | Body Weight             | kg                     | Manual/automatic logging |
 | Body Fat                | %                      | Manual/automatic logging |
@@ -177,16 +188,15 @@ The file names in the data set present the following issues:
 * Data shape is unclear:
   * "minuteCaloriesNarrow_merged.csv" and "dailyCalories_merged.csv" are both tall (or "Narrow") data
   * "minuteIntensitiesWide_merged.csv" and "dailyIntensities_merged.csv" are both wide data
-* Data sampling rate is inconsistently formatted
-  * Compare "heartrate_seconds_merged.csv" to "daySleep_merged.csv"
-* Sample rate usually comes before feature name in the file name, affecting file sort operations
+* Data sampling rate is encoded inconsistently: compare "heartrate_seconds_merged.csv" to "daySleep_merged.csv"
+* Feature name is often not first in the file name, affecting file sort operations
 * All files are suffixed with "_merged", so no distinction is made by this information and it could be dropped
 
 To correct each of these issues, I'll rename the files using this naming convention:
 
 > [feature]\_[src/sum]\_[interval]\_[shape].[filetype]
 
-For example, "sleepDay_merged.csv" will be renamed to "sleep_sum_days_wide.csv". This format removes the ambiguities in the original file names, and ensures all required information on the contents of the data is included.
+For example, "sleepDay_merged.csv" will be renamed to "sleep_sum_days_wide.csv". This format removes the ambiguities in the original file names, ensures all required information on the contents of the data is included, and automatically groups data by feature.
 
 #### Inconsistent variable names
 
@@ -197,7 +207,7 @@ All variables in the data set will be changed from CapitalisedCase to snake_case
 Some of the tables in the data set use variables of a type unsuitable for analysis. These variables and their required modifications are tabulated below:
 
 | Variable       | Original Type | Required Type | Issue |
-|:---------------|:--------------|:--------------|:----------------------------------------------------------------------|
+|:-|:-|:-|:----|
 | ActivityDay    | chr           | datetime      | Cannot perform datetime operations on chr variables |
 | ActivityHour   | chr           | datetime      | Cannot perform datetime operations on chr variables |
 | ActivityMinute | chr           | datetime      | Cannot perform datetime operations on chr variables |
@@ -356,10 +366,10 @@ glimpse(sleepDay_comp)
 
 ```
 
-# Step 3: Clean
-## Data Cleaning Checklist
+# Step 3: Process
+## Data Processing Checklist
 
-The following broad cleaning steps were taken:
+The following broad data-processing steps were taken:
 
 * Updated CSV file names to new standard
 * Removed missing data
@@ -369,7 +379,7 @@ The following broad cleaning steps were taken:
 * Trimmed leading or trailing characters
 * Validated numeric data
 
-These steps are further detailed in the sections below.
+These steps are further detailed in the sections below. The full R code used for this section is included in Appendix C.
 
 ## Update CSV file names to new standard
 
@@ -893,11 +903,9 @@ The validation confirmed all date values were within the target range.
 * BMI values are in range
 * Daily, hourly, and minute duration sums are no more than one day, hour, or minute, respectively
 * Distances make sense
-* Step counts make sense (check for >20000 for a start)
+* Step counts make sense (e.g. < 20000)
 * Calories are within normal range
 * Heart rates are less than 200
-  
-The validation code was split into generic checks that could be run on all numeric values, followed by code to analyse specific variables.
 
 ```{r process-validate-all-numeric}
 # Validate all numeric data
@@ -1045,11 +1053,10 @@ rm(range_max, result, valid_df_names, valid_col_names)
 * There were no invalid minute summations
 * There were 19 step count data points above 20,000: these were manually checked and found to be associated with long distances covered and high levels of exercise, which made sense, so I considered that data valid.
 * There were a total of four unique data points with a distance covered of more than one half-marathon: all of these also indicatd a very high level of exercise for at lest 90 minutes, which made sense, so I considered the data valid
-* Calories: 21 records showed caloric burns of over 4000 calories. All but one of those were associated with very high levels of activity: the outlier showed only 30 minutes total as "Very Active" or "Lightly Active", compared to 120+ minutes for all other records. It does show 15km distance covered that day, which is nearly a third of a marathon, so for now it makes enough sense to keep it in, and I will analyse it further after the cleaning stage.
+* Calories: 21 records showed caloric burns of over 4000 calories. All but one of those were associated with very high levels of activity: the outlier showed only 30 minutes total as "Very Active" or "Lightly Active", compared to 120+ minutes for all other records. It does show 15km distance covered that day, which is nearly a third of a marathon, so for now it makes enough sense to keep it in, and I will analyse it further after the processing stage.
 * Heart-rate: 13 records were found with a heart-rate between 200 and 203, all of which corresponded to a single user over a 30-minute period of "Very Active" intensity.
   
 #### Sources used to determine realistic limits for numerical values
-Sources for ranges:
 
   * BMI: Based on WHO statistical categories for classifying BMI values: https://en.wikipedia.org/wiki/Body_mass_index#Categories
   * Half-marathon: https://en.wikipedia.org/wiki/Half_marathon
@@ -1058,9 +1065,9 @@ Sources for ranges:
   * Max HR: https://www.heart.org/en/healthy-living/fitness/fitness-basics/target-heart-rates
 
 # Step 4: Analyse
-## Method
+## Methodology
 
-There were a range of features to consider when comparing the FitBit devices in the dataset to the Bellabeat Ivy. Of these, I chose to focus this analysis on those features that were both available on the Ivy and available in the data set, either directly or by a suitable proxy data. This approach allowed me to focus my recommendations to the marketing team on those features that can actually be marketed to the public in the first place.
+There were a range of features to consider when comparing the FitBit devices in the dataset to the Bellabeat Ivy. Of these, I chose to focus this analysis on those features that were both available on the Ivy and available in the data set, either directly or by a suitable proxy data. This approach allowed me to focus my recommendations to the marketing team on those features that I could draw reliable conclusions on. The full R code used for this section is included in Appendix D.
 
 ```{r analyse-util-fns}
 # Declare generic functions for use in the analysis below
@@ -1416,7 +1423,7 @@ With the upper quintile of the cohort removed, the correlation between hours and
 
 One potential selling point for any health-oriented wearable device like FitBits is the idea that they actively encourage users to be more active. I wanted to see if this idea was borne out in the data: I knew that most users did not exercise much, on average, but did those values increase at all? If they did, there would be grounds to claim that device usage is at least associated with an increase in users' physical activity.
 
-To analyse this, I calculated the correlation coefficients between time and exercise hours, at each intensity level and for each user, which condesed the full months' worth of data for each user into a single variable indicating their overall trend. These coefficents were then plotted as a histogram, allowing me to visualise the trends for all users at once: 
+To analyse this, I calculated the correlation coefficients between time and exercise hours, at each intensity level and for each user, which condensed the full months' worth of data for each user into a single variable indicating their overall trend. These coefficents were then plotted as a histogram, allowing me to visualise the trends for all users at once: 
 
 ```{r analyse-active-hours-over-time}
 # For each intensity level, obtain time coefficients per ID
@@ -1785,7 +1792,7 @@ This score is one of several features of the Ivy that was not present on the Fit
 
 Nighttime usage of FitBits was particularly relevant to the Readiness Score, as that function does not work unless the user wears their device to bed. If people were already frequently wearing their devices to bed, then the marketing could leverage this tendency to push the feature as an improvement on existing features. On the other hand, if users were not wearing their devices overnight, this might indicate that users were not interested in existing overnight-monitoring functions, or that there were other factors that made overnight wear unappealing, which marketing teams would need to take into account.
 
-As of April 2016, the following wristband FitBits were available:
+The following wristband FitBits are included in the data set:
 
 | Model           | Sleep Logging | Heart-rate Tracking | Source |
 |:----------------|:-------------:|:-------------------:|:-------|
@@ -1865,7 +1872,7 @@ ggplot(heartrate_polling_variance) +
 
 ```
 
-This meant that even choosing the median value of 5 seconds could result in an inferred "time logged" value that's out by a factor of 4.
+This meant that even choosing the median value of 5 seconds could result in an inferred "time logged" value that was out by a factor of 4.
 
 To build out the data, I decided on an approach where the time between logs was used to infer the time logged, but only within an acceptable time difference. If one log follows its predecessor by less than this difference, the time between the two is considered "Logged" time: if the delay is greater, we assume the device was taken off for that time. I selected 20 seconds as the maximum acceptable time between polls, based on the "Maximum" value from the boxplot of 17 seconds.
 
@@ -1909,6 +1916,7 @@ nights_logged_by_heart_rate <- heartrate_src_seconds_tall %>%
 # Plot histogram showing who logged what fraction of their nights
 viz_nighttime_heartrate_usage <- plot_histo_pareto(nights_logged_by_heart_rate$nights_logged_pct, bin_width = 0.05) +
   gglayer_theme +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(title = "Percentage of Nights Logged In Bed - HR Users Only",
        subtitle = "Source: Heart Rate Data")
 print(viz_nighttime_heartrate_usage)
@@ -1944,8 +1952,8 @@ For those IDs present in both data sets, the results were almost identical, with
 
 * Out of all users in the data set, very few users were logging, with 36% (12 users) logging between 0% and 5% of nights, and a majority of 51% (17 users) logging 10% of nights or fewer
 * Out of users with sleep log data, the results were more evenly spread, with 37% (9 users) logging 0% to 15% of nights, and another 42% (10 users) logging 70% to 90% of nights.
-* Given the ubiquity of sleep-tracking functionality amongst FitBit devices, these findings indicated that the majority of users were not making use of this function.
-* Out of all users, 73% (24 users) did not log any heartrate-based sleep logs.
+* Given the ubiquity of sleep-tracking functionality among FitBit devices, these findings indicated that the majority of users were not making use of this function.
+* Out of all users, 73% (24 users) did not log any heart rate-based sleep logs.
 * Out of all users, 42% (14 users) logged heart-rate data
 * Out of those users, the results were split, with 50% (7 users) logging sleep on 35% to 90% of nights, and the other 50% logging sleep on 0% to 15% of nights
 * The heart-rate-based analysis produced the same results for individual users as the sleep-log-based analysis
@@ -2020,7 +2028,7 @@ print(viz_average_pct_asleep)
 #### Preliminary Findings
 
 * The majority of users appear to be getting high-quality sleep, with 88% of users logging between 90% and 95% of time as Asleep
-* Time spent Awake is almost nil, with 88% of users logging less than 5% of time asleep. This is likely due to the programming of the FitBit devices, which feature an automatic sleep logging function that kicks in when it detects the user may be asleep, based on movement and heart rate data
+* Time spent Awake is almost nil, with 88% of users logging less than 5% of time asleep. This is likely due to the programming of the FitBit devices, which feature an automatic sleep logging function that begins logging when it detects the user may be asleep, based on movement and heart rate data
 
 ### Did sleep quantity or quality improve over time?
 
@@ -2109,7 +2117,7 @@ periods_logged <- periods_logged %>%
   group_by(id, yday) %>%
   # Find the total time logged as the sum of time between valid logs
   summarize(logged_time_hours = sum(time_since_last_poll) * sec2hour) %>%
-  # Count up the nights where each user logged sufficient time to be considered asleep with their fitbit
+  # Count up the nights where each user logged sufficient time to be considered asleep with their FitBit
   group_by(id) %>%
   summarize(periods = sum(logged_time_hours > min_hours_logged),
             periods_pct = periods / periods_total)
@@ -2120,6 +2128,7 @@ periods_logged <- periods_logged %>%
 # Plot histogram showing who logged what fraction of their nights
 viz_daytime_heartrate_usage <- plot_histo_pareto(periods_logged$periods_pct, bin_width = 0.05) +
   gglayer_theme +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(title = "Percentage of Daytime Periods Logged",
        subtitle = "Source: Heart Rate Data")
 print(viz_daytime_heartrate_usage)
@@ -2196,13 +2205,13 @@ print(viz_heartrate_intensities)
 
 # Step 5: Share
 
-Based on my analysis in the previous step, I present the following findings from the data set:
+Based on my analysis in the previous step, I present the following findings from the data set. The full R code used for this section is included in Appendix E.
 
 > Most users don't get much exercise
 
 Visualising how much time individual users spent in each zone shows a clear bias towards sedentary and lightly-active zones:
 
-```{r share-plot-avg-time-by-intensity, echo=FALSE, fig.dim = c(6, 4), fig.cap = "AYO THIS A FIG.CAP"}
+```{r share-plot-avg-time-by-intensity, echo=FALSE, fig.dim = c(6, 4)}
 print(viz_avg_time_by_intensity)
 ```
 
@@ -2240,7 +2249,7 @@ print(viz_mean_daily_steps)
 
 > Users prefer to engage in mobile exercise
 
-I found a strong correlation between time spent exercising and distance covered, which indicates users prefer mobile exercise; if the opposite was true and users spent their active time stationary, we would have seen more users with higher active minutes but low distance.
+I found a strong correlation between time spent exercising and distance covered, which I concluded indicated users prefer mobile exercise; if this was not true and users had no preference, then there would be no correlation as high-volume exercisers would be just as likely to log low distances as high distances.
 
 ```{r share-plot-distance-vs-activity, echo=FALSE}
 print(viz_distance_vs_activity)
@@ -2248,7 +2257,7 @@ print(viz_distance_vs_activity)
 
 > Sleep logging was not common; among those who did log, usage was spread out
 
-The majority of users log sleep on no or a minority of nights, with a long tail of users who log an increasing majority of nights:
+The majority of users log sleep on a small minority of nights, with a long tail of users who log an increasing majority of nights:
 
 ```{r share-plot-night-usage-sleep-logs, echo=FALSE}
 print(viz_night_usage_sleep_logs)
@@ -2327,15 +2336,15 @@ Based on the findings in the previous section, I present the following recommend
 
 > Promote overnight device wear as a value-add practice, but highlight device comfort equally
 
-The analysis indicated that the majority of users do not wear their devices overnight. This is a potential problem for marketing, as a number of key features of the device, including the Readiness Score, Resting Heart Rate tracking, Cardiac Coherence, and Sleep Tracking will function in a reduced capacity, or not at all, if the device cannot gather data from the user overnight. In the Help documentation for the Ivy it is explicitly stated that, for the Readiness Score feature, ["To fully calibrate your baseline and get more reliable readiness score results you must wear your Ivy for 30 nights."](https://support.bellabeat.com/hc/en-us/articles/360020620059-Readiness-Score) Marketing materials should therefore highlight these features as beneficial to the user _as a result_ of overnight wear to encourage this practice. This will in turn allow these functions to be positioned as value-add features that do more with the data that is gathered overnight than competing products.
+The analysis indicated that the majority of users do not wear their devices overnight. This is a potential problem for marketing, as a number of key features of the device, including the Readiness Score, Resting Heart Rate tracking, Cardiac Coherence, and Sleep Tracking will function in a reduced capacity, or not at all, if the device cannot gather data from the user overnight. In the Help documentation for the Ivy it is explicitly stated that, for the Readiness Score feature, ["To fully calibrate your baseline and get more reliable readiness score results you must wear your Ivy for 30 nights."](https://support.bellabeat.com/hc/en-us/articles/360020620059-Readiness-Score) Marketing materials should therefore highlight these features as beneficial to the user _as a result_ of overnight wear to encourage this practice. This will in turn allow these functions to be positioned as value-add features that do more with the data that is gathered overnight than competing products do.
 
 One obvious reason why users may not be wearing their devices overnight is comfort. One of the FitBit manuals referenced in my research makes explicit mention of this, informing the user that ["wearing your tracker 24/7 does not allow your skin to breathe"](https://myhelp.fitbit.com/resource/manual_surge_en_US). The design of the Ivy may not be helping matters here: it has a more angular, protruding body than typical "watch"-type wearables, which may negatively impact overnight comfort:
 
 <div style="text-align: center;">
-  ![Bellabeat Ivy on a woman's wrist](imgs/bellabeat_ivy_on_wrist_cropped.png)
+  ![Bellabeat Ivy on a woman's wrist](imgs/bellabeat_ivy_on_wrist_cropped.png)<br>
 </div>
 
-To mitigate these potential consumer concerns, the marketing should highlight the hypo-allergenic and hygenic aspects of the materials used in the Ivy, positioning these as keeping users comfortable during overnight wear.
+To mitigate these potential consumer concerns, the marketing should highlight the hypo-allergenic and hygienic aspects of the materials used in the Ivy, positioning these as keeping users comfortable during overnight wear.
 
 > Showcase users in a broad range of activities, rather than focusing on athleticism
 
@@ -2343,7 +2352,7 @@ To appeal to the FitBit market, marketing materials for the Ivy's exercise track
 
 > Focus on mobile activities over stationary activities
 
-Users were found to preference mobile activities, with very little evidence of high-intensity, low-distance exercise in the data set. Marketing materials should therefore focus on mobile, outdoor activites like light jogging, walking dogs, and cycling, instead of stationary activites like gym workouts.
+Users were found to preference mobile activities, with very little evidence of high-intensity, low-distance exercise in the data set. Marketing materials should therefore focus on mobile, outdoor activities like light jogging, walking dogs, and cycling, instead of stationary activities like gym workouts.
 
 > Focus on walking over running
 
@@ -2363,7 +2372,7 @@ The analysis found that, while most users do not log heart rate data overnight, 
 
 ```{r apdx-fns, include=FALSE}
 # For these appendices, I wrote the following function to reproduce all code chunks with their labels intact for better readability
-# Print code inside a given code chunk with backtick header/footer
+# Print code inside a given code chunk with back-tick header/footer
 print_chunk_with_label <- function(label) {
   code <- knitr::knit_code$get(label)
   if(!is.null(code)) {
@@ -2411,13 +2420,7 @@ b) Reversing the order of the mapping produced entirely wrong results.
 
 That being said, I still didn't know if those were the categories FitBits work in, not another naming convention that the data authors came up with, and I didn't know if all FitBit models worked this way. To address this, I referred to the manuals of the relevant FitBits.
 
-Activity trackers like FitBits detect activity intensity partly by measuring the user's heart rate while exercising: a higher heart rate corresponds with a higher degree of exertion. As of April 2016, the three latest FitBit models with heart-rate tracking were:
-
-* FitBit Blaze [(released January 2016)](https://www.youtube.com/watch?v=3k3DNT54NkA)
-* FitBit Charge HR [(released January 2015)](https://blog.fitbit.com/charge-hr-and-surge-available-now-plus-new-charge-colors/)
-* FitBit Surge [(released January 2015)](https://blog.fitbit.com/charge-hr-and-surge-available-now-plus-new-charge-colors/)
-
-The product manuals for each model confirmed they all break down user activity into four default heart-rate zones:
+Activity trackers like FitBits detect activity intensity partly by measuring the user's heart rate while exercising: a higher heart rate corresponds with a higher degree of exertion. I looked up the product manuals for all heart-rate compatible FitBits in the data set: these confirmed that each model broke down user activity into four default heart-rate zones:
 
 |Product|HR Zone 1|HR Zone 2|HR Zone 3|HR Zone 4|
 |:------|:----:|:----:|:----:|:----:|
@@ -2427,7 +2430,7 @@ The product manuals for each model confirmed they all break down user activity i
 
 While those weren't exactly the same terms as used in the data set, they were clearly related - "Out of Zone" equated to "Sedentary", for example. 
 
-All three FitBit manuals also made the same claim that the default zones were "based on American Heart Association recommendations". Even without [validating that claim](https://www.heart.org/en/healthy-living/fitness/fitness-basics/aha-recs-for-physical-activity-in-adults), it indicated to me that the reasoning behind each zone was not arbitrary, and was consistent across devices, so I concluded that any other FitBit models circa 2016 would follow the following classification scheme:
+All three FitBit manuals also made the same claim that the default zones were "based on American Heart Association recommendations". Even without [validating that claim](https://www.heart.org/en/healthy-living/fitness/fitness-basics/aha-recs-for-physical-activity-in-adults), it indicated to me that the reasoning behind each zone was not arbitrary, and was consistent across devices, so I concluded that any intensity data in the data set would follow the following classification scheme:
 
 0. Sedentary Minutes
 1. Lightly Active Minutes
@@ -2456,7 +2459,7 @@ Further research in the FitBit help pages on [how to track sleep stats](https://
 * No HR tracking: Generic sleep quality tracking with "Time spent awake, restless, and asleep" categories
 * HR tracking: Sleep stage tracking with "Light Sleep, Deep Sleep, and REM Sleep" stages
 
-The help pages also singled out the Charge HR and the Surge as the only HR-tracking FitBits to _not_ have full sleep stage tracking, leaving the Blaze as the only device from this time period with that feature. Blaze aside, motion-based sleep quality tracking appeared to go all the way back to the [FitBit One](https://myhelp.fitbit.com/s/products?language=en_US&p=one). Given this information, I concluded that any other FitBit models circa 2016 would follow the following classification scheme for the sleep data:
+The help pages also singled out the Charge HR and the Surge as the only HR-tracking FitBits to _not_ have full sleep stage tracking, leaving the Blaze as the only device from this time period with that feature. Blaze aside, motion-based sleep quality tracking appeared to go all the way back to the [FitBit One](https://myhelp.fitbit.com/s/products?language=en_US&p=one). Given this information, I concluded that any heart rate data in the data set would follow the following classification scheme for the sleep data:
 
 * 1: Awake
 * 2: Restless
